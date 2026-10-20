@@ -244,6 +244,15 @@
   .segmento button[data-tipo="ingreso"][aria-pressed="true"] { background: var(--verde); color: var(--sobre-verde, #fff); }
   .segmento button[data-tipo="gasto"][aria-pressed="false"] { color: var(--rojo); }
   .segmento button[data-tipo="ingreso"][aria-pressed="false"] { color: var(--verde); }
+  /* Mes o semana: lo elegido, con el color de la app; lo otro, en ese color para que se vea que se puede tocar */
+  .segmento.rango button { padding: 8px; font-size: 15px; }
+  .segmento.rango button[aria-pressed="true"] { background: var(--acento); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--acento) 35%, transparent); }
+  .segmento.rango button[aria-pressed="false"] { color: var(--acento); }
+  /* Fijos: gasto en rojo e ingreso en verde, igual que al apuntar */
+  .segmento button[data-fijo-tipo="gasto"][aria-pressed="true"] { background: var(--rojo); color: #fff; }
+  .segmento button[data-fijo-tipo="ingreso"][aria-pressed="true"] { background: var(--verde); color: var(--sobre-verde, #fff); }
+  .segmento button[data-fijo-tipo="gasto"][aria-pressed="false"] { color: var(--rojo); }
+  .segmento button[data-fijo-tipo="ingreso"][aria-pressed="false"] { color: var(--verde); }
   #hoja-mov.es-gasto .importe span, #hoja-mov.es-gasto .importe input { color: var(--rojo); }
   #hoja-mov.es-ingreso .importe span, #hoja-mov.es-ingreso .importe input { color: var(--verde); }
   #hoja-mov .importe input::placeholder { color: inherit; opacity: .35; }
