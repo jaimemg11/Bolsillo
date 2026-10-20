@@ -521,6 +521,7 @@
 <section class="hoja" id="hoja-limites" role="dialog" aria-modal="true" aria-labelledby="titulo-limites" aria-hidden="true">
   <div class="asa"></div>
   <div class="hoja-cabeza"><button data-volver-ajustes>Ajustes</button><h3 id="titulo-limites">Límites</h3><span style="min-width:70px"></span></div>
+  <div class="segmento rango" role="group" aria-label="Los límites cuentan"><button data-limites-periodo="semana" aria-pressed="false">Por semana</button><button data-limites-periodo="mes" aria-pressed="false">Por mes</button></div>
   <p class="nota-ajuste" style="margin-top:0" id="limites-intro"></p>
   <div id="limites-cuerpo"></div>
 </section>
@@ -873,8 +874,17 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     if (ahora >= limite * 0.8 && antes < limite * 0.8) return `Ojo: llevas ${euros(ahora)} de ${euros(limite)} en ${nombre}`;
     return "";
   }
+  // Los límites cuentan por semana o por mes: lo eliges en la hoja de Límites (si no, como tu presupuesto).
+  // Semana: de tu día de cobro si cobras cada semana, si no de lunes a domingo. Mes: de paga a paga si cobras un día del mes, si no del 1 al último.
+  const limitesSemanales = () => (datos.extra.limitesPeriodo || (pagaSemanal() ? "semana" : "mes")) === "semana";
+  function periodoLimites(hoy = hoyISO()) {
+    if (limitesSemanales()) { const ini = inicioSemana(hoy); return { ini, fin: masDiasISO(ini, 7), semanal: true }; }
+    if (!pagaSemanal()) return { ...periodo(hoy), semanal: false };
+    const m = hoy.slice(0, 7);
+    return { ini: m + "-01", fin: moverMes(m, 1) + "-01", semanal: false };
+  }
   function avisoLimite(mv) {
-    const limite = (datos.extra.limites || {})[mv.cat], pe = periodo();
+    const limite = (datos.extra.limites || {})[mv.cat], pe = periodoLimites();
     if (!limite || mv.tipo !== "gasto" || mv.fecha < pe.ini || mv.fecha >= pe.fin) return "";
     const ahora = gastoPeriodo(pe, mv.cat);
     return textoLimite(ahora - mv.importe, ahora, limite, catDe("gasto", mv.cat)[1]);
@@ -889,10 +899,13 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     const hoyIni = inicioSemana(hoyISO()), ult = masDiasISO(ini, 6);
     if (ini === hoyIni) return "Esta semana";
     if (ini === masDiasISO(hoyIni, -7)) return "Semana pasada";
+    if (ini === masDiasISO(hoyIni, 7)) return "Semana que viene";
     return ini.slice(0, 7) === ult.slice(0, 7) ? `${diaCorto(ini, false)}–${diaCorto(ult)}` : `${diaCorto(ini)} – ${diaCorto(ult)}`;
   }
   // Al apuntar algo, se va al mes y a la semana de ese movimiento
   function irAFecha(f) { mesVisto = claveMes(f); semanaVista = inicioSemana(f); }
+  // Hasta dónde se puede avanzar: hasta hoy o, si hay algo apuntado con fecha futura, hasta ese día (si no, quedaría escondido)
+  const ultimaFecha = () => vivos().reduce((max, x) => (x.fecha > max ? x.fecha : max), hoyISO());
 
   // ---------- Pintar ----------
   // «Llevas 40 € menos que en septiembre a estas alturas»: el mismo número de días del mes (de la paga o de la semana) anterior.
@@ -929,14 +942,15 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
 
   function pintar() {
     ajustarPresupuestoVariable();
-    const semana = vistaRango === "semana", hoyIni = inicioSemana(hoyISO());
-    if (semana && (!semanaVista || semanaVista > hoyIni)) semanaVista = hoyIni;
+    const semana = vistaRango === "semana", hoyIni = inicioSemana(hoyISO()), fechaTope = ultimaFecha(), topeSemana = inicioSemana(fechaTope);
+    if (semana && !semanaVista) semanaVista = hoyIni;
+    if (semana && semanaVista > topeSemana) semanaVista = topeSemana;
     if (semana) mesVisto = claveMes(semanaVista);
     const actual = claveMes(hoyISO()), esActual = semana ? semanaVista === hoyIni : mesVisto === actual;
     const anio = mesVisto.slice(0, 4);
     $("#mes").textContent = semana ? nombreSemana(semanaVista) : nombreMes(mesVisto) + (anio !== actual.slice(0, 4) ? ` ${anio}` : "");
     $("#mes").classList.toggle("semana", semana);
-    $("#mes-despues").disabled = esActual;
+    $("#mes-despues").disabled = semana ? semanaVista >= topeSemana : mesVisto >= claveMes(fechaTope);
     $("#mes-antes").setAttribute("aria-label", semana ? "Semana anterior" : "Mes anterior"); $("#mes-despues").setAttribute("aria-label", semana ? "Semana siguiente" : "Mes siguiente");
     document.querySelectorAll("[data-rango]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.rango === vistaRango)));
 
@@ -1001,19 +1015,20 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     const mayor = filasCat[0]?.[1] || 1;
     if (filtroCat && !porCat[filtroCat]) filtroCat = null; // al cambiar de mes, si esa categoría no tiene gastos
     // Con límite (solo en el periodo actual): la barra mide cuánto llevas de tu límite, y cambia de color al acercarte o pasarte
-    const limites = enPeriodo ? datos.extra.limites || {} : {};
+    // Los límites se ven en la vista que va con ellos: semanales en «Semana», mensuales en «Mes» (la actual)
+    const pl = periodoLimites(), conLimites = esActual && semana === pl.semanal, limites = conLimites ? datos.extra.limites || {} : {};
     $("#categorias").innerHTML = filasCat.length ? `<h2>En qué se va</h2><div class="grupo">${filasCat.map(([id, total]) => {
       const [, nombre, icono, color] = catDe("gasto", id), n = gastos.filter((g) => g.cat === id).length, limite = limites[id];
       let sub = `${n} gasto${n === 1 ? "" : "s"} · ${Math.round((total / gastado) * 100)} %`, ancho = (total / mayor) * 100, colorBarra = color;
       if (limite) {
-        const usado = gastoPeriodo(pe, id), r = usado / limite;
+        const usado = gastoPeriodo(pl, id), r = usado / limite;
         sub = usado > limite ? `<span class="limite-pasado">${euros(usado - limite)} por encima de tu límite</span>`
           : `<span class="${r >= 0.8 ? "limite-cerca" : ""}">${euros(usado, conCentimos(usado))} de ${euros(limite, conCentimos(limite))}</span> · te quedan ${euros(limite - usado)}`;
         ancho = Math.min(100, r * 100); colorBarra = r > 1 ? "var(--rojo)" : r >= 0.8 ? "#ff9f0a" : color;
       }
       return `<button class="fila ${filtroCat === id ? "elegida" : ""}" data-filtro-cat="${id}" aria-pressed="${filtroCat === id}"><div class="icono" style="--c:${color}">${ico(icono)}</div><div class="medio"><div style="display:flex;justify-content:space-between;gap:8px"><span class="titulo">${nombre}</span><span class="cifra num">${euros(total)}</span></div>
         <div class="sub">${sub}</div><div class="cat-barra"><i style="width:${ancho}%;background:${colorBarra}"></i></div></div></button>`;
-    }).join("")}</div><p class="nota-ajuste">Toca una categoría para ver solo sus gastos.${enPeriodo && !Object.keys(limites).length ? ` <button class="enlace" id="poner-limites">Ponle un límite a alguna</button>` : ""}</p>` : "";
+    }).join("")}</div><p class="nota-ajuste">Toca una categoría para ver solo sus gastos.${conLimites && !Object.keys(limites).length ? ` <button class="enlace" id="poner-limites">Ponle un límite a alguna</button>` : ""}</p>` : "";
 
     // Últimas 6 semanas o últimos 6 meses
     if (semana) {
@@ -1172,7 +1187,9 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     guardar(); sincronizar();
     irAFecha(mv.fecha);
     cerrarHoja(); pintar();
-    avisar(editando ? "Cambios guardados" : avisoLimite(mv) || `${tipo === "gasto" ? "−" : "+"}${euros(c)} · ${catDe(tipo, cat)[1]}`);
+    // Una fecha futura casi siempre es un despiste: se avisa (y la vista se va a esa semana o mes para que se vea)
+    if (mv.fecha > hoyISO()) avisar(`Ojo: lo has puesto en el futuro, el ${new Date(mv.fecha + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}`);
+    else avisar(editando ? "Cambios guardados" : avisoLimite(mv) || `${tipo === "gasto" ? "−" : "+"}${euros(c)} · ${catDe(tipo, cat)[1]}`);
     if (navigator.vibrate) navigator.vibrate(10);
   });
   // Borrar sin preguntar, con «Deshacer» (más rápido y da menos miedo que un «¿Seguro?»)
@@ -1572,7 +1589,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   // API para extras.js
   window.B = {
     get datos() { return datos; }, get sync() { return sync; }, get mesVisto() { return mesVisto; },
-    CATS, vivos, euros, esc, catDe, avisar, periodo, gastoPeriodo, adivinarCat, conCentimos, sobres, pagaSemanal, presupuestoMes, presupuestoSemana, DIAS_SEMANA, dialogo, abrirHoja, cerrarHoja, pintar, hoyISO, nombreMes, api, aCentimos, setExtra, crearNube, irVista, anadirMov,
+    CATS, vivos, euros, esc, catDe, avisar, periodo, periodoLimites, limitesSemanales, gastoPeriodo, adivinarCat, conCentimos, sobres, pagaSemanal, presupuestoMes, presupuestoSemana, DIAS_SEMANA, dialogo, abrirHoja, cerrarHoja, pintar, hoyISO, nombreMes, api, aCentimos, setExtra, crearNube, irVista, anadirMov,
     ponerPresupuesto: (c) => { Object.assign(datos, { presupuesto: c, presupuestoAct: new Date().toISOString(), presupuestoPend: true }); guardar(); pintar(); sincronizar(); },
     alPintar, alCambiarVista, alSincronizar,
   };

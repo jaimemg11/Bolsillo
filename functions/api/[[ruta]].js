@@ -22,7 +22,7 @@ import { marcador, cerrarSiToca, hoyMadrid as hoyDuelo, masDias, diasEntre, DURA
 const TIPOS = { gasto: ["comida", "super", "transporte", "ocio", "ropa", "subs", "estudios", "otros"], ingreso: ["paga", "trabajo", "ventas", "regalo", "devolucion"] };
 const NOMBRES = { comida: "Comida", super: "Súper", transporte: "Transporte", ocio: "Ocio", ropa: "Ropa", subs: "Suscripciones", estudios: "Estudios", otros: "Otros", devolucion: "Devolución", paga: "Paga", trabajo: "Trabajo", ventas: "Ventas", regalo: "Regalo" };
 const MAX_MOVS = 50_000; // por persona: años de gastos
-const AJUSTES = ["paga", "huchas", "retos", "insignias", "ocultos", "tema", "fijos", "limites", "variable"]; // ocultos: ids de gastos que no se enseñan en los círculos // lo que se guarda además de los movimientos y el presupuesto
+const AJUSTES = ["paga", "huchas", "retos", "insignias", "ocultos", "tema", "fijos", "limites", "variable", "limitesPeriodo"]; // ocultos: ids de gastos que no se enseñan en los círculos // lo que se guarda además de los movimientos y el presupuesto
 const REGISTROS_POR_HORA = 5; // nubes nuevas por IP y hora (evita que alguien llene la base)
 
 // Categoría según la tienda (lo que pone el datáfono). Se mira en orden: lo más concreto primero.
@@ -459,11 +459,14 @@ function textoLimite(antes, ahora, limite, nombre) {
 // Si el pago te acerca o te pasa de tu límite de esa categoría, lo dice el mismo aviso (nunca dos avisos por un pago)
 async function avisoLimite(usuario, mov, env) {
   if (mov.tipo !== "gasto") return "";
-  const { results } = await env.DB.prepare("SELECT clave, valor FROM ajustes WHERE usuario = ?1 AND clave IN ('limites', 'paga')").bind(usuario).all();
+  const { results } = await env.DB.prepare("SELECT clave, valor FROM ajustes WHERE usuario = ?1 AND clave IN ('limites', 'paga', 'limitesPeriodo')").bind(usuario).all();
   const leer = (k) => { try { return JSON.parse(results.find((f) => f.clave === k)?.valor || "null"); } catch { return null; } };
   const limite = Number(leer("limites")?.[mov.cat]) || 0;
   if (!Number.isInteger(limite) || limite <= 0) return "";
-  const { ini, fin } = periodoDe(mov.fecha, leer("paga"));
+  // Igual que en la app: por semana (desde el día de cobro, o de lunes a domingo) o por mes (de paga a paga, o del 1 al último)
+  const paga = leer("paga"), cobroSemanal = Number.isInteger(paga?.semana);
+  const semanal = (leer("limitesPeriodo") || (cobroSemanal ? "semana" : "mes")) === "semana";
+  const { ini, fin } = semanal ? periodoDe(mov.fecha, cobroSemanal ? paga : { semana: 1 }) : periodoDe(mov.fecha, cobroSemanal ? null : paga);
   const { n } = await env.DB.prepare("SELECT coalesce(sum(importe), 0) AS n FROM movs WHERE usuario = ?1 AND tipo = 'gasto' AND cat = ?2 AND borrado = 0 AND fecha >= ?3 AND fecha < ?4").bind(usuario, mov.cat, ini, fin).first();
   return textoLimite(n - mov.importe, n, limite, NOMBRES[mov.cat] || mov.cat);
 }

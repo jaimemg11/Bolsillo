@@ -1229,7 +1229,7 @@
   apuntarFijosAqui();
 
   // ============ Límites por categoría ============
-  // Se guardan como { categoría: céntimos } y cuentan en el mismo periodo que el presupuesto (mes o de paga a paga)
+  // Se guardan como { categoría: céntimos }. Cuentan por semana o por mes (limitesPeriodo; si no lo eliges, como tu presupuesto)
   const listaLimites = () => B.datos.extra.limites || {};
   const mesAntes = (n) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - n); return fechaISO(d).slice(0, 7); };
   // Lo que sueles gastar: la media de los 3 meses anteriores (los que tienen gastos), para que el límite tenga sentido
@@ -1239,16 +1239,18 @@
     return totales.length ? Math.round(totales.reduce((a, b) => a + b, 0) / totales.length) : 0;
   }
   function subLimite(cat) {
-    const l = listaLimites()[cat], usado = B.gastoPeriodo(B.periodo(), cat), media = mediaCat(cat);
+    const l = listaLimites()[cat], usado = B.gastoPeriodo(B.periodoLimites(), cat), media = mediaCat(cat);
     const corto = (c) => euros(c, B.conCentimos(c));
     if (l) return usado > l ? `<span class="limite-pasado">Te has pasado ${corto(usado - l)}</span>` : `${corto(usado)} de ${corto(l)} · quedan ${corto(l - usado)}`;
-    if (media && B.pagaSemanal()) return `Sueles gastar unos ${euros(Math.round(media * 7 / 30), false)} a la semana`;
+    if (media && B.limitesSemanales()) return `Sueles gastar unos ${euros(Math.round(media * 7 / 30), false)} a la semana`;
     return media ? `Sueles gastar unos ${euros(media, false)} al mes` : usado ? `Llevas ${euros(usado)}` : "Sin gastos todavía";
   }
   function pintarLimites() {
-    const lim = listaLimites(), pe = B.periodo();
+    const lim = listaLimites(), pe = B.periodo(), semanal = B.limitesSemanales();
     $("#cuantos-limites").textContent = Object.keys(lim).length || "";
-    $("#limites-intro").textContent = `Cuentan ${pe.semanal ? `por semana (de ${pe.nombreDia} a ${pe.nombreDia})` : pe.paga ? `de paga a paga (desde el día ${pe.diaPaga})` : "por mes"}, igual que tu presupuesto. Deja vacío lo que no quieras limitar.`;
+    $$("[data-limites-periodo]").forEach((b) => b.setAttribute("aria-pressed", String((b.dataset.limitesPeriodo === "semana") === semanal)));
+    const cuando = semanal ? (pe.semanal ? `de ${pe.nombreDia} a ${pe.nombreDia}` : "de lunes a domingo") : pe.paga && !pe.semanal ? `de paga a paga (desde el día ${pe.diaPaga})` : "del día 1 al último del mes";
+    $("#limites-intro").textContent = `Cada límite es ${semanal ? "para la semana" : "para el mes"}: cuenta ${cuando}. Deja vacío lo que no quieras limitar.`;
     $("#limites-cuerpo").innerHTML = `<div class="grupo">${B.CATS.gasto.map(([id, nombre, icono, color]) => `<label class="fila limite-fila" for="lim-${id}"><div class="icono" style="--c:${color}">${ico(icono)}</div>
       <div class="medio"><div class="titulo">${nombre}</div><div class="sub">${subLimite(id)}</div></div>
       <input id="lim-${id}" data-limite="${id}" class="num" inputmode="decimal" placeholder="Sin límite" value="${lim[id] ? String(lim[id] / 100).replace(".", ",") : ""}" autocomplete="off" aria-label="Límite de ${nombre} en euros"></label>`).join("")}</div>`;
@@ -1265,6 +1267,12 @@
   }
   function abrirLimites() { pintarLimites(); B.cerrarHoja(); setTimeout(() => B.abrirHoja($("#hoja-limites")), 250); }
   $("#abrir-limites").addEventListener("click", abrirLimites);
+  // Por semana o por mes: las cantidades no se tocan (60 € siguen siendo 60 €), solo cambia en cuánto tiempo cuentan
+  $$("[data-limites-periodo]").forEach((b) => b.addEventListener("click", () => {
+    if ((b.dataset.limitesPeriodo === "semana") === B.limitesSemanales()) return;
+    B.setExtra("limitesPeriodo", b.dataset.limitesPeriodo); pintarLimites(); B.pintar();
+    avisar(b.dataset.limitesPeriodo === "semana" ? "Tus límites ahora son por semana" : "Tus límites ahora son por mes");
+  }));
   $("#abrir-ajustes").addEventListener("click", () => ($("#cuantos-limites").textContent = Object.keys(listaLimites()).length || ""));
 
   // ============ ¿Me lo puedo permitir? ============
