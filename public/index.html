@@ -415,9 +415,9 @@
     <div class="campo"><label for="presupuesto">Presupuesto al mes</label><input id="presupuesto" class="num" inputmode="decimal" placeholder="Sin límite" autocomplete="off"></div>
   </div>
   <div class="campos" style="margin-top:10px">
-    <div class="campo"><label for="dia-paga">Cobro el día</label><select id="dia-paga"><option value="">Fin de mes (normal)</option></select></div>
+    <div class="campo"><label for="dia-paga">Cobro</label><select id="dia-paga"><option value="">Fin de mes (normal)</option></select></div>
   </div>
-  <p class="nota-ajuste">Con presupuesto, Bolsillo te dice cuánto te queda y cuánto puedes gastar al día. Si cobras la paga otro día (por ejemplo el 15), elígelo y las cuentas irán de paga a paga.</p>
+  <p class="nota-ajuste">Con presupuesto, Bolsillo te dice cuánto te queda y cuánto puedes gastar al día. Si cobras otro día (por ejemplo el 15) o cada semana (por ejemplo los jueves), elígelo y las cuentas irán de paga a paga.</p>
   <div class="campos"><div class="campo"><button class="boton-fila" id="abrir-fijos">Gastos e ingresos fijos</button><span class="estado-sync" id="cuantos-fijos"></span></div></div>
   <p class="nota-ajuste">El alquiler, el gimnasio, Spotify o la paga: se apuntan solos cada mes el día que toca.</p>
   <div class="campos"><div class="campo"><button class="boton-fila" id="abrir-limites">Límites por categoría</button><span class="estado-sync" id="cuantos-limites"></span></div></div>
@@ -641,7 +641,7 @@
   </div>
   <div class="paso" data-paso="2" hidden>
     <div class="logo-bienvenida"><span class="icono grande" data-ico="target" style="--c:#ff2d55"></span></div>
-    <h2>¿Cuánto quieres gastar al mes?</h2>
+    <h2 id="bv-titulo-presupuesto">¿Cuánto quieres gastar al mes?</h2>
     <p class="lema">Te diré cuánto te queda y cuánto puedes gastar cada día. Puedes cambiarlo cuando quieras.</p>
     <div class="importe" style="padding:4px 0 14px"><input id="bv-presupuesto" class="num" inputmode="decimal" placeholder="250" autocomplete="off" aria-label="Presupuesto al mes"><span>€</span></div>
     <div class="campos" style="text-align:left"><div class="campo"><label for="bv-paga">Cobro la paga</label><select id="bv-paga"><option value="">a fin de mes</option></select></div></div>
@@ -781,14 +781,30 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   const moverMes = (clave, n) => { const [a, m] = clave.split("-").map(Number); const d = new Date(a, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
   const nombreMes = (clave, corto) => new Date(clave + "-15T12:00:00").toLocaleDateString("es-ES", corto ? { month: "short" } : { month: "long" }).replace(".", "");
 
-  // El periodo de las cuentas: el mes natural o, en modo paga, de paga a paga (ini entra, fin no). El servidor usa la misma cuenta.
-  function periodo() {
-    const hoy = hoyISO(), [a, m] = hoy.split("-").map(Number), diaPaga = Number(datos.extra.paga?.dia) || 0;
+  // Cuándo cobras: { dia: 15 } cada mes ese día, o { semana: 4 } cada semana ese día (0 domingo … 4 jueves … 6 sábado)
+  const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const pagaSemanal = () => Number.isInteger(datos.extra.paga?.semana);
+  // Con paga semanal el presupuesto es de la semana; para lo que va por meses (duelos, insignias) se pasa a su equivalente
+  const presupuestoMes = () => datos.presupuesto && (pagaSemanal() ? Math.round(datos.presupuesto * 30 / 7) : datos.presupuesto);
+  const presupuestoSemana = () => datos.presupuesto && (pagaSemanal() ? datos.presupuesto : Math.round(datos.presupuesto * 7 / 30));
+  const leerPaga = (v) => !v ? null : String(v).startsWith("s") ? { semana: Number(String(v).slice(1)) } : { dia: Number(v) };
+  const valorPaga = (p) => Number.isInteger(p?.semana) ? "s" + p.semana : p?.dia || "";
+  const opcionesPaga = (texto) => Array.from({ length: 30 }, (_, i) => `<option value="${i + 2}">${texto(i + 2)}</option>`).join("")
+    + `<optgroup label="Cada semana">${[1, 2, 3, 4, 5, 6, 0].map((d) => `<option value="s${d}">Cada ${DIAS_SEMANA[d]}</option>`).join("")}</optgroup>`;
+  const masDiasISO = (iso, n) => new Date(Date.parse(iso + "T12:00:00Z") + n * 864e5).toISOString().slice(0, 10);
+
+  // El periodo de las cuentas: el mes natural, de paga a paga o de semana a semana (ini entra, fin no). El servidor usa la misma cuenta.
+  function periodo(hoy = hoyISO()) {
+    const dias = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
+    if (pagaSemanal()) {
+      const atras = (new Date(hoy + "T12:00:00Z").getUTCDay() - datos.extra.paga.semana + 7) % 7, ini = masDiasISO(hoy, -atras);
+      return { ini, fin: masDiasISO(ini, 7), paga: true, semanal: true, nombreDia: DIAS_SEMANA[datos.extra.paga.semana], diaPaga: Number(ini.slice(8)), diaHoy: atras + 1, quedanDias: 7 - atras, largo: 7 };
+    }
+    const [a, m] = hoy.split("-").map(Number), diaPaga = Number(datos.extra.paga?.dia) || 0;
     const enMes = (an, me) => new Date(Date.UTC(an, me, diaPaga > 1 ? Math.min(diaPaga, new Date(Date.UTC(an, me + 1, 0)).getUTCDate()) : 1)).toISOString().slice(0, 10); // el 31 en febrero es el 28
     let ini = enMes(a, m - 1);
     if (ini > hoy) ini = enMes(a, m - 2);
     const [ia, im] = ini.split("-").map(Number), fin = enMes(ia, im);
-    const dias = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
     return { ini, fin, paga: diaPaga > 1, diaPaga: Number(ini.slice(8)), diaHoy: dias(ini, hoy) + 1, quedanDias: dias(hoy, fin), largo: dias(ini, fin) };
   }
   const gastoPeriodo = (pe, cat) => vivos().filter((x) => x.tipo === "gasto" && x.fecha >= pe.ini && x.fecha < pe.fin && (!cat || x.cat === cat)).reduce((s, x) => s + x.importe, 0);
@@ -808,21 +824,20 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   }
 
   // ---------- Pintar ----------
-  // «Llevas 40 € menos que en septiembre a estas alturas»: el mismo número de días del mes (o de la paga) anterior.
+  // «Llevas 40 € menos que en septiembre a estas alturas»: el mismo número de días del mes (de la paga o de la semana) anterior.
   // En un mes pasado se compara el mes entero. Si el anterior no tiene gastos, no se dice nada.
-  function compararConAntes(esActual, diaPaga, diaHoy, gastado) {
+  function compararConAntes(esActual, diaHoy, gastado) {
     const sumar = (desde, hasta) => vivos().filter((x) => x.tipo === "gasto" && x.fecha >= desde && x.fecha < hasta).reduce((s, x) => s + x.importe, 0);
     const iso = (d) => d.toLocaleDateString("sv-SE");
     const [a, m] = mesVisto.split("-").map(Number);
     let antes, nombre, desdeAntes, finAntes;
-    if (esActual && diaPaga > 1) {
-      const hoy = new Date(), enMes = (an, me) => new Date(an, me, Math.min(diaPaga, new Date(an, me + 1, 0).getDate()));
-      let ini = enMes(hoy.getFullYear(), hoy.getMonth());
-      if (ini > new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())) ini = enMes(hoy.getFullYear(), hoy.getMonth() - 1);
-      const ini0 = enMes(ini.getFullYear(), ini.getMonth() - 1);
-      desdeAntes = iso(ini0); finAntes = iso(new Date(Math.min(ini0.getTime() + diaHoy * 864e5, ini.getTime())));
-      antes = sumar(desdeAntes, finAntes); nombre = "que en tu paga anterior a estas alturas";
-      if (!sumar(desdeAntes, iso(ini))) return "";
+    const pe = periodo();
+    if (esActual && pe.paga) {
+      // El periodo anterior es el que contiene la víspera de este; se cuentan los mismos días que llevas en el actual
+      const previo = periodo(masDiasISO(pe.ini, -1));
+      desdeAntes = previo.ini; finAntes = [masDiasISO(previo.ini, pe.diaHoy), pe.ini].sort()[0];
+      antes = sumar(desdeAntes, finAntes); nombre = pe.semanal ? "que la semana pasada a estas alturas" : "que en tu paga anterior a estas alturas";
+      if (!sumar(desdeAntes, pe.ini)) return "";
     } else {
       const previo = moverMes(mesVisto, -1), diasPrevio = new Date(a, m - 1, 0).getDate();
       const hasta = esActual ? Math.min(diaHoy, diasPrevio) : diasPrevio;
@@ -845,19 +860,20 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     const movs = vivos().filter((m) => claveMes(m.fecha) === mesVisto);
     const gastos = movs.filter((m) => m.tipo === "gasto"), ingresos = movs.filter((m) => m.tipo === "ingreso");
     const gastado = gastos.reduce((s, m) => s + m.importe, 0), ingresado = ingresos.reduce((s, m) => s + m.importe, 0);
-    const p = datos.presupuesto;
+    // Con paga semanal, el presupuesto es de la semana: un mes pasado se compara con su equivalente mensual
+    const p = esActual ? datos.presupuesto : presupuestoMes();
 
-    // Resumen: del mes o, si cobras la paga otro día (modo paga), de paga a paga
+    // Resumen: del mes o, si cobras otro día (modo paga), de paga a paga o de semana a semana
     const [a, m] = mesVisto.split("-").map(Number), diasMes = new Date(a, m, 0).getDate();
-    const diaPaga = Number(datos.extra.paga?.dia) || 0;
+    const pe = periodo();
     let gastadoR = gastado, ingresadoR = ingresado, diaHoy = esActual ? new Date().getDate() : diasMes, quedanDias = esActual ? diasMes - diaHoy + 1 : 0;
     let etiqueta = esActual ? "Gastado este mes" : "Gastado en " + nombreMes(mesVisto), hasta = "para fin de mes";
-    if (esActual && diaPaga > 1) {
-      const pe = periodo(), delPeriodo = vivos().filter((x) => x.fecha >= pe.ini && x.fecha < pe.fin);
+    if (esActual && pe.paga) {
+      const delPeriodo = vivos().filter((x) => x.fecha >= pe.ini && x.fecha < pe.fin);
       gastadoR = delPeriodo.filter((x) => x.tipo === "gasto").reduce((s, x) => s + x.importe, 0);
       ingresadoR = delPeriodo.filter((x) => x.tipo === "ingreso").reduce((s, x) => s + x.importe, 0);
       diaHoy = pe.diaHoy; quedanDias = pe.quedanDias;
-      etiqueta = `Gastado desde tu paga del ${pe.diaPaga}`; hasta = "hasta tu paga";
+      etiqueta = pe.semanal ? (pe.diaHoy === 1 ? "Gastado hoy, día de cobro" : `Gastado desde el ${pe.nombreDia}`) : `Gastado desde tu paga del ${pe.diaPaga}`; hasta = "hasta tu paga";
     }
     let barra = "", lineas = "";
     if (p) {
@@ -867,9 +883,9 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
       lineas = `<div class="linea-resumen"><span>${queda >= 0 ? `Te quedan <b class="num">${euros(queda)}</b>` : `<b class="num pasado">Te has pasado ${euros(-queda)}</b>`}</span><span class="num">de ${euros(p, conCentimos(p))}</span></div>`;
       // Una sola frase que se adapta al ancho (dos columnas se partían en cuatro trozos en un móvil)
       if (esActual && queda > 0) lineas += `<p class="linea-resumen" style="margin:6px 0 0;display:block">Puedes gastar <b class="num">${euros(Math.floor(queda / quedanDias))}</b> al día ${hasta === "hasta tu paga" ? `hasta tu paga (${quedanDias} día${quedanDias === 1 ? "" : "s"})` : `durante ${quedanDias === 1 ? "hoy, último día del mes" : `${quedanDias} días`}`}</p>`;
-    } else if (esActual && diaPaga > 1) lineas = `<div class="linea-resumen" style="margin-top:10px"><span>${quedanDias} día${quedanDias === 1 ? "" : "s"} ${hasta}</span></div>`;
+    } else if (esActual && pe.paga) lineas = `<div class="linea-resumen" style="margin-top:10px"><span>${quedanDias} día${quedanDias === 1 ? "" : "s"} ${hasta}</span></div>`;
     const media = diaHoy ? Math.round(gastadoR / diaHoy) : 0;
-    const comparacion = compararConAntes(esActual, diaPaga, diaHoy, gastadoR);
+    const comparacion = compararConAntes(esActual, diaHoy, gastadoR);
     const [ent, dec] = euros(gastadoR).replace(" €", "").split(",");
     $("#resumen").innerHTML = `<div class="etiqueta">${etiqueta}</div>
       <div class="total num">${ent}<small>,${dec} €</small></div>${comparacion}${barra}${lineas}
@@ -884,7 +900,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     const mayor = filasCat[0]?.[1] || 1;
     if (filtroCat && !porCat[filtroCat]) filtroCat = null; // al cambiar de mes, si esa categoría no tiene gastos
     // Con límite (solo en el periodo actual): la barra mide cuánto llevas de tu límite, y cambia de color al acercarte o pasarte
-    const limites = esActual ? datos.extra.limites || {} : {}, pe = periodo();
+    const limites = esActual ? datos.extra.limites || {} : {};
     $("#categorias").innerHTML = filasCat.length ? `<h2>En qué se va</h2><div class="grupo">${filasCat.map(([id, total]) => {
       const [, nombre, icono, color] = catDe("gasto", id), n = gastos.filter((g) => g.cat === id).length, limite = limites[id];
       let sub = `${n} gasto${n === 1 ? "" : "s"} · ${Math.round((total / gastado) * 100)} %`, ancho = (total / mayor) * 100, colorBarra = color;
@@ -1327,11 +1343,22 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   document.querySelectorAll("[data-volver-ajustes]").forEach((b) => b.addEventListener("click", () => { cerrarHoja(); setTimeout(() => $("#abrir-ajustes").click(), 250); }));
   // Modo paga: día en que cobras
   const diaPagaSel = $("#dia-paga");
-  diaPagaSel.insertAdjacentHTML("beforeend", Array.from({ length: 30 }, (_, i) => `<option value="${i + 2}">Día ${i + 2}</option>`).join(""));
-  $("#abrir-ajustes").addEventListener("click", () => (diaPagaSel.value = datos.extra.paga?.dia || ""));
+  diaPagaSel.insertAdjacentHTML("beforeend", opcionesPaga((d) => `Día ${d}`));
+  // El presupuesto es «al mes» o «a la semana» según cobres
+  const etiquetaPresupuesto = () => ($("label[for=presupuesto]").textContent = pagaSemanal() ? "Presupuesto a la semana" : "Presupuesto al mes");
+  $("#abrir-ajustes").addEventListener("click", () => { diaPagaSel.value = valorPaga(datos.extra.paga); etiquetaPresupuesto(); });
   diaPagaSel.addEventListener("change", () => {
-    setExtra("paga", diaPagaSel.value ? { dia: Number(diaPagaSel.value) } : null); pintar();
-    avisar(diaPagaSel.value ? `Modo paga: de día ${diaPagaSel.value} a día ${diaPagaSel.value}` : "Cuentas por mes natural");
+    const antes = pagaSemanal();
+    setExtra("paga", leerPaga(diaPagaSel.value)); etiquetaPresupuesto();
+    // Al pasar de mes a semana (o al revés), el presupuesto se convierte para que siga siendo lo mismo
+    if (datos.presupuesto && antes !== pagaSemanal()) {
+      Object.assign(datos, { presupuesto: Math.round(datos.presupuesto * (pagaSemanal() ? 7 / 30 : 30 / 7)), presupuestoAct: new Date().toISOString(), presupuestoPend: true });
+      presupuesto.value = (datos.presupuesto / 100).toLocaleString("es-ES", { maximumFractionDigits: 2, useGrouping: false });
+      guardar(); sincronizar();
+    }
+    pintar();
+    const pg = datos.extra.paga;
+    avisar(!pg ? "Cuentas por mes natural" : pagaSemanal() ? `Cobras cada ${DIAS_SEMANA[pg.semana]}: cuentas de ${DIAS_SEMANA[pg.semana]} a ${DIAS_SEMANA[pg.semana]}${datos.presupuesto ? `, con ${euros(datos.presupuesto, conCentimos(datos.presupuesto))} a la semana` : ""}` : `Modo paga: de día ${pg.dia} a día ${pg.dia}`);
   });
 
   // ---------- Pestañas ----------
@@ -1362,13 +1389,15 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     try { localStorage.setItem("bolsillo.bienvenida", "si"); } catch {}
     bv.hidden = true; pintar();
   }
-  $("#bv-paga").insertAdjacentHTML("beforeend", Array.from({ length: 30 }, (_, i) => `<option value="${i + 2}">el día ${i + 2}</option>`).join(""));
+  $("#bv-paga").insertAdjacentHTML("beforeend", opcionesPaga((d) => `el día ${d}`));
+  // Si cobra cada semana, la pregunta pasa a ser cuánto quiere gastar a la semana
+  $("#bv-paga").addEventListener("change", (e) => { $("#bv-titulo-presupuesto").textContent = String(e.target.value).startsWith("s") ? "¿Cuánto quieres gastar a la semana?" : "¿Cuánto quieres gastar al mes?"; });
   bv.addEventListener("click", (e) => {
     if (e.target.closest("[data-siguiente]")) {
       if (pasoBv === 2) {
         const p = aCentimos($("#bv-presupuesto").value);
         if (p) Object.assign(datos, { presupuesto: p, presupuestoAct: new Date().toISOString(), presupuestoPend: true });
-        if ($("#bv-paga").value) setExtra("paga", { dia: Number($("#bv-paga").value) }); else guardar();
+        if ($("#bv-paga").value) setExtra("paga", leerPaga($("#bv-paga").value)); else guardar();
       }
       irPaso(pasoBv + 1);
     }
@@ -1391,7 +1420,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   // API para extras.js
   window.B = {
     get datos() { return datos; }, get sync() { return sync; }, get mesVisto() { return mesVisto; },
-    CATS, vivos, euros, esc, catDe, avisar, periodo, gastoPeriodo, adivinarCat, conCentimos, dialogo, abrirHoja, cerrarHoja, pintar, hoyISO, nombreMes, api, aCentimos, setExtra, crearNube, irVista, anadirMov,
+    CATS, vivos, euros, esc, catDe, avisar, periodo, gastoPeriodo, adivinarCat, conCentimos, pagaSemanal, presupuestoMes, presupuestoSemana, DIAS_SEMANA, dialogo, abrirHoja, cerrarHoja, pintar, hoyISO, nombreMes, api, aCentimos, setExtra, crearNube, irVista, anadirMov,
     ponerPresupuesto: (c) => { Object.assign(datos, { presupuesto: c, presupuestoAct: new Date().toISOString(), presupuestoPend: true }); guardar(); pintar(); sincronizar(); },
     alPintar, alCambiarVista, alSincronizar,
   };

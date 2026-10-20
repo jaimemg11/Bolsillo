@@ -121,6 +121,12 @@ export const novedad = {
 
 // ---------- Novedades: lo que trae cada versión (la más nueva arriba). Al añadir algo a la app, se apunta aquí. ----------
 export const versiones = [
+  { version: "2.7", fecha: "2026-10-20", titulo: "Si cobras cada semana", icono: "calendar-check", color: "#28a745", cambios: [
+    "En Ajustes → Cobro ya puedes elegir «Cada jueves» (o el día de la semana que cobres).",
+    "Las cuentas van de jueves a jueves: cuánto llevas, cuánto te queda y cuánto puedes gastar al día hasta que cobres.",
+    "El presupuesto pasa a ser semanal, y se compara con lo que llevabas la semana pasada a estas alturas.",
+    "Los límites por categoría y «¿Me lo puedo permitir?» también cuentan por semanas.",
+  ] },
   { version: "2.6", fecha: "2026-10-20", titulo: "Préstamos entre amigos", icono: "handshake", color: "#ff9500", cambios: [
     "Apunta lo que le dejas a un amigo (o lo que te dejan) desde el botón +, en «Préstamo».",
     "No cuenta como gasto: es dinero que vuelve. En tu mes ves aparte «Te deben 20 € de préstamos».",

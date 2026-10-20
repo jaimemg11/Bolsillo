@@ -60,7 +60,7 @@
     { tipo: "sin_caprichos", icono: "flower-lotus", color: "#af52de", nombre: "3 días sin caprichos", desc: "Nada de comida fuera, ocio ni ropa durante 3 días.", dias: 3, falla: (g) => ["comida", "ocio", "ropa"].includes(g.cat) },
     { tipo: "sin_delivery", icono: "moped", color: "#ff9500", nombre: "Semana sin delivery", desc: "7 días sin pedir comida a domicilio (Glovo, Uber Eats, Just Eat…).", dias: 7, falla: (g) => DELIVERY.test(g.nota || "") },
     { tipo: "sin_cafe", icono: "coffee", color: "#a2845e", nombre: "Semana sin cafeterías", desc: "7 días sin cafés ni Starbucks: el café, en casa.", dias: 7, falla: (g) => /caf[eé]|starbucks|cafeter/i.test(g.nota || "") },
-    { tipo: "semana_presupuesto", icono: "target", color: "#ff2d55", nombre: "Semana en presupuesto", desc: "Gasta como mucho lo que te toca por semana según tu presupuesto.", dias: 7, necesita: "presupuesto", limite: () => Math.round((B.datos.presupuesto || 0) * 7 / 30) },
+    { tipo: "semana_presupuesto", icono: "target", color: "#ff2d55", nombre: "Semana en presupuesto", desc: "Gasta como mucho lo que te toca por semana según tu presupuesto.", dias: 7, necesita: "presupuesto", limite: () => B.presupuestoSemana() || 0 },
     { tipo: "menos_semana", icono: "trend-down", color: "#28a745", nombre: "Gasta menos que la semana pasada", desc: "Que estos 7 días sumen menos que los 7 anteriores.", dias: 7, limite: (inicio) => gastos().filter((g) => g.fecha >= masDias(inicio, -7) && g.fecha < inicio).reduce((s, g) => s + g.importe, 0) },
   ];
   const retoDe = (r) => RETOS.find((x) => x.tipo === r.tipo);
@@ -101,7 +101,7 @@
     { id: "racha_30", icono: "crown", color: "#ffb800", nombre: "Un mes imparable", desc: "30 días seguidos apuntando", ok: () => mejorRacha() >= 30 },
     { id: "cien", icono: "seal-check", color: "#007aff", nombre: "Centenario", desc: "100 movimientos apuntados", ok: () => B.vivos().length >= 100 },
     { id: "detallista", icono: "note-pencil", color: "#5856d6", nombre: "Detallista", desc: "20 gastos con nota", ok: () => B.vivos().filter((m) => m.nota).length >= 20 },
-    { id: "mes_verde", icono: "target", color: "#ff2d55", nombre: "Mes en verde", desc: "Termina un mes sin pasarte del presupuesto", ok: () => B.datos.presupuesto && mesesCerrados().some((k) => totalMes(k, "gasto") > 0 && totalMes(k, "gasto") <= B.datos.presupuesto) },
+    { id: "mes_verde", icono: "target", color: "#ff2d55", nombre: "Mes en verde", desc: "Termina un mes sin pasarte del presupuesto", ok: () => B.datos.presupuesto && mesesCerrados().some((k) => totalMes(k, "gasto") > 0 && totalMes(k, "gasto") <= B.presupuestoMes()) },
     { id: "ahorrador", icono: "piggy-bank", color: "#ff6b9a", nombre: "Mes en positivo", desc: "Un mes con más ingresos que gastos", ok: () => mesesCerrados().some((k) => totalMes(k, "ingreso") > totalMes(k, "gasto") && totalMes(k, "gasto") > 0) },
     { id: "cocinillas", icono: "cooking-pot", color: "#34c759", nombre: "Cocinillas", desc: "Un mes entero sin pedir a domicilio", ok: () => mesesCerrados().some((k) => B.vivos().filter((m) => m.fecha.startsWith(k)).length >= 10 && !gastos().some((g) => g.fecha.startsWith(k) && DELIVERY.test(g.nota || ""))) },
     { id: "nube", icono: "cloud-check", color: "#32ade6", nombre: "En la nube", desc: "Crea tu nube", ok: () => Boolean(B.sync.clave) },
@@ -613,7 +613,7 @@
   async function asegurarPresupuesto() {
     if (B.datos.presupuesto) return true;
     const v = await B.dialogo({ titulo: "Primero, tu presupuesto", texto: "En los duelos se compara qué % de su presupuesto gasta cada uno, así es justo aunque tengáis distinto dinero.", boton: "Guardar",
-      campos: [{ id: "p", etiqueta: "Al mes", placeholder: "250 €", decimal: true }] });
+      campos: [{ id: "p", etiqueta: B.pagaSemanal() ? "A la semana" : "Al mes", placeholder: B.pagaSemanal() ? "60 €" : "250 €", decimal: true }] });
     const c = v && B.aCentimos(v.p);
     if (!c) return false;
     B.ponerPresupuesto(c);
@@ -1242,12 +1242,13 @@
     const l = listaLimites()[cat], usado = B.gastoPeriodo(B.periodo(), cat), media = mediaCat(cat);
     const corto = (c) => euros(c, B.conCentimos(c));
     if (l) return usado > l ? `<span class="limite-pasado">Te has pasado ${corto(usado - l)}</span>` : `${corto(usado)} de ${corto(l)} · quedan ${corto(l - usado)}`;
+    if (media && B.pagaSemanal()) return `Sueles gastar unos ${euros(Math.round(media * 7 / 30), false)} a la semana`;
     return media ? `Sueles gastar unos ${euros(media, false)} al mes` : usado ? `Llevas ${euros(usado)}` : "Sin gastos todavía";
   }
   function pintarLimites() {
     const lim = listaLimites(), pe = B.periodo();
     $("#cuantos-limites").textContent = Object.keys(lim).length || "";
-    $("#limites-intro").textContent = `Cuentan ${pe.paga ? `de paga a paga (desde el día ${pe.diaPaga})` : "por mes"}, igual que tu presupuesto. Deja vacío lo que no quieras limitar.`;
+    $("#limites-intro").textContent = `Cuentan ${pe.semanal ? `por semana (de ${pe.nombreDia} a ${pe.nombreDia})` : pe.paga ? `de paga a paga (desde el día ${pe.diaPaga})` : "por mes"}, igual que tu presupuesto. Deja vacío lo que no quieras limitar.`;
     $("#limites-cuerpo").innerHTML = `<div class="grupo">${B.CATS.gasto.map(([id, nombre, icono, color]) => `<label class="fila limite-fila" for="lim-${id}"><div class="icono" style="--c:${color}">${ico(icono)}</div>
       <div class="medio"><div class="titulo">${nombre}</div><div class="sub">${subLimite(id)}</div></div>
       <input id="lim-${id}" data-limite="${id}" class="num" inputmode="decimal" placeholder="Sin límite" value="${lim[id] ? String(lim[id] / 100).replace(".", ",") : ""}" autocomplete="off" aria-label="Límite de ${nombre} en euros"></label>`).join("")}</div>`;
@@ -1283,7 +1284,8 @@
   async function permitir() {
     let p = B.datos.presupuesto;
     if (!p) {
-      const r = await B.dialogo({ titulo: "Primero, tu presupuesto", texto: "Para saber si te lo puedes permitir necesito saber cuánto quieres gastar como mucho al mes.", campos: [{ id: "p", etiqueta: "Al mes", placeholder: "250", decimal: true, max: 9 }], boton: "Seguir" });
+      const semanal = B.pagaSemanal();
+      const r = await B.dialogo({ titulo: "Primero, tu presupuesto", texto: `Para saber si te lo puedes permitir necesito saber cuánto quieres gastar como mucho ${semanal ? "a la semana" : "al mes"}.`, campos: [{ id: "p", etiqueta: semanal ? "A la semana" : "Al mes", placeholder: semanal ? "60" : "250", decimal: true, max: 9 }], boton: "Seguir" });
       if (!r) return;
       p = B.aCentimos(r.p);
       if (!p) return avisar("Escribe una cantidad");
@@ -1297,7 +1299,7 @@
     const que = r.que.slice(0, 40), pe = B.periodo(), fijos = await fijosPendientes(pe);
     const queda = p - B.gastoPeriodo(pe) - fijos.total - precio, dias = pe.quedanDias, normal = Math.floor(p / pe.largo);
     const notaFijos = fijos.total ? ` Ya cuento ${euros(fijos.total)} de fijos que te faltan (${fijos.nombres.slice(0, 2).join(", ")}${fijos.nombres.length > 2 ? "…" : ""}).` : "";
-    const hasta = pe.paga ? "hasta tu paga" : "hasta fin de mes";
+    const hasta = pe.semanal ? `hasta el ${pe.nombreDia}` : pe.paga ? "hasta tu paga" : "hasta fin de mes";
     if (queda >= 0) {
       const alDia = Math.floor(queda / dias), holgado = alDia >= normal * 0.5;
       const eleccion = await B.dialogo({ titulo: holgado ? "Sí, te lo puedes permitir" : "Sí, pero irás justo",
@@ -1310,17 +1312,18 @@
       }
       return;
     }
-    // No llega: si cabe en el próximo periodo, desde cuándo; si ni con uno entero, cuánto apartar al mes
-    const fijosMes = listaFijos().filter((f) => f.tipo === "gasto").reduce((s, f) => s + f.importe, 0), libre = p - fijosMes;
+    // No llega: si cabe en el próximo periodo (con sus fijos), desde cuándo; si ni con uno entero, cuánto apartar cada periodo
+    const siguiente = B.periodo(pe.fin), libre = p - (await fijosPendientes(siguiente)).total;
     const cuando = new Date(pe.fin + "T12:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+    const unidad = pe.semanal ? ["semana", "semanas", "a la semana", "una semana entera"] : ["mes", "meses", "al mes", "un mes entero"];
     let titulo, texto;
     if (precio <= libre) {
-      titulo = "Este mes no te llega";
-      texto = `Te faltan ${euros(-queda)} ${hasta}.${notaFijos} A partir del ${cuando} (en ${dias === 1 ? "1 día" : `${dias} días`}) sí podrás, y te quedarían ${euros(libre - precio)} para ${pe.paga ? "esa paga" : "ese mes"}.`;
+      titulo = pe.semanal ? "Esta semana no te llega" : "Este mes no te llega";
+      texto = `Te faltan ${euros(-queda)} ${hasta}.${notaFijos} A partir del ${pe.semanal ? `${pe.nombreDia}, ${cuando}` : cuando} (en ${dias === 1 ? "1 día" : `${dias} días`}) sí podrás, y te quedarían ${euros(libre - precio)} para ${pe.semanal ? "esa semana" : pe.paga ? "esa paga" : "ese mes"}.`;
     } else {
-      const aparta = Math.max(500, Math.ceil((libre * 0.2) / 500) * 500), meses = Math.ceil(precio / aparta);
+      const aparta = Math.max(pe.semanal ? 200 : 500, Math.ceil((libre * 0.2) / 100) * 100), veces = Math.ceil(precio / aparta);
       titulo = "Mejor ahorra para ello";
-      texto = libre > 0 ? `Cuesta más de lo que tienes libre en un mes entero (${euros(libre, false)} después de tus fijos). Si apartas ${euros(aparta, false)} al mes, lo tienes en ${meses} ${meses === 1 ? "mes" : "meses"}.`
+      texto = libre > 0 ? `Cuesta más de lo que tienes libre en ${unidad[3]} (${euros(libre, false)} después de tus fijos). Si apartas ${euros(aparta, false)} ${unidad[2]}, lo tienes en ${veces} ${veces === 1 ? unidad[0] : unidad[1]}.`
         : "Tus gastos fijos ya ocupan todo tu presupuesto. Revisa el presupuesto o los fijos en Ajustes antes de pensar en esto.";
     }
     const eleccion = await B.dialogo({ titulo, texto, opciones: [{ valor: "hucha", texto: "Ahorrar para esto en una hucha", sub: `Meta: ${euros(precio, B.conCentimos(precio))}` }, { valor: "vale", texto: "Vale", sub: "No se apunta nada" }] });

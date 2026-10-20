@@ -433,9 +433,15 @@ async function pagoWallet(usuario, cuerpo, crudo, env, esperar) {
   return applePay(usuario, leido, env, "wallet", esperar);
 }
 
-// El periodo de las cuentas (mes natural o de paga a paga), igual que en la app: ini entra, fin no
-function periodoDe(hoy, diaPaga) {
-  const [a, m] = hoy.split("-").map(Number);
+// El periodo de las cuentas (mes natural, de paga a paga o de semana a semana), igual que en la app: ini entra, fin no.
+// paga: { dia: 15 } cada mes ese día, o { semana: 4 } cada semana ese día (0 domingo … 6 sábado)
+const masDiasISO = (iso, n) => new Date(Date.parse(iso + "T12:00:00Z") + n * 864e5).toISOString().slice(0, 10);
+function periodoDe(hoy, paga) {
+  if (Number.isInteger(paga?.semana)) {
+    const ini = masDiasISO(hoy, -((new Date(hoy + "T12:00:00Z").getUTCDay() - paga.semana + 7) % 7));
+    return { ini, fin: masDiasISO(ini, 7) };
+  }
+  const diaPaga = Number(paga?.dia) || 0, [a, m] = hoy.split("-").map(Number);
   const enMes = (an, me) => new Date(Date.UTC(an, me, diaPaga > 1 ? Math.min(diaPaga, new Date(Date.UTC(an, me + 1, 0)).getUTCDate()) : 1)).toISOString().slice(0, 10);
   let ini = enMes(a, m - 1);
   if (ini > hoy) ini = enMes(a, m - 2);
@@ -457,7 +463,7 @@ async function avisoLimite(usuario, mov, env) {
   const leer = (k) => { try { return JSON.parse(results.find((f) => f.clave === k)?.valor || "null"); } catch { return null; } };
   const limite = Number(leer("limites")?.[mov.cat]) || 0;
   if (!Number.isInteger(limite) || limite <= 0) return "";
-  const { ini, fin } = periodoDe(mov.fecha, Number(leer("paga")?.dia) || 0);
+  const { ini, fin } = periodoDe(mov.fecha, leer("paga"));
   const { n } = await env.DB.prepare("SELECT coalesce(sum(importe), 0) AS n FROM movs WHERE usuario = ?1 AND tipo = 'gasto' AND cat = ?2 AND borrado = 0 AND fecha >= ?3 AND fecha < ?4").bind(usuario, mov.cat, ini, fin).first();
   return textoLimite(n - mov.importe, n, limite, NOMBRES[mov.cat] || mov.cat);
 }
@@ -485,9 +491,12 @@ async function applePay(usuario, cuerpo, env, origen = "applepay", esperar) {
 }
 
 // ---------- Duelos ----------
+// El presupuesto al mes (los duelos reparten por días sobre 30). Quien cobra cada semana lo tiene por semana: se pasa a su equivalente.
 async function presupuestoDe(usuario, env) {
-  const p = await env.DB.prepare("SELECT valor FROM ajustes WHERE usuario = ?1 AND clave = 'presupuesto'").bind(usuario).first();
-  return p?.valor ? Number(p.valor) : 0;
+  const { results } = await env.DB.prepare("SELECT clave, valor FROM ajustes WHERE usuario = ?1 AND clave IN ('presupuesto', 'paga')").bind(usuario).all();
+  const p = Number(results.find((f) => f.clave === "presupuesto")?.valor) || 0;
+  let paga = null; try { paga = JSON.parse(results.find((f) => f.clave === "paga")?.valor || "null"); } catch {}
+  return Number.isInteger(paga?.semana) ? Math.round(p * 30 / 7) : p;
 }
 // Lo que ve cada uno: porcentajes, días apuntados y quién es quién (sin ids de usuario ni euros)
 const filaPublica = (f, usuario) => ({ nombre: f.nombre, pct: f.pct, dias: f.dias, applepay: f.applepay, valido: f.valido, yo: f.usuario === usuario });
