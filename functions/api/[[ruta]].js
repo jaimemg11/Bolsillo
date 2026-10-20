@@ -716,7 +716,7 @@ async function push(accion, usuario, cuerpo, env) {
     if (!results.length) return json({ error: "Este móvil no tiene los avisos activados" }, 400);
     const estados = [];
     for (const s of results) {
-      const estado = await enviarPush(s, { titulo: "Así te avisará Bolsillo", cuerpo: "Renovaciones de suscripciones, tu racha y tu mes para compartir. Como mucho un aviso al día." }, env).catch(() => 0);
+      const estado = await enviarPush(s, { titulo: "Así te avisará Bolsillo", cuerpo: "Renovaciones de suscripciones, tu racha, tu resumen del domingo y tu mes para compartir. Como mucho un aviso al día." }, env).catch(() => 0);
       if (estado === 404 || estado === 410) await env.DB.prepare("DELETE FROM push_subs WHERE endpoint = ?1").bind(s.endpoint).run();
       estados.push(estado);
     }

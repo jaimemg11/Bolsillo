@@ -1,5 +1,4 @@
 // Todo el texto de la landing, la privacidad y el aviso legal de Bolsillo. Los componentes de build.mjs no llevan copy escrito a mano.
-// Lo marcado REVISAR es un supuesto que tiene que confirmar el dueño antes de mover la página.
 
 export const sitio = {
   nombre: "Bolsillo",
@@ -7,11 +6,11 @@ export const sitio = {
   urlLanding: "https://bolsillo-app-9tz.pages.dev/conoce/",
   cta: "Abrir Bolsillo gratis",
   ctaCorto: "Abrir app",
-  // REVISAR: datos del responsable (obligatorios en el aviso legal y la privacidad). Pon tu nombre completo y un email de contacto.
-  titular: "REVISAR: nombre y apellidos del titular",
-  email: "REVISAR: email de contacto",
-  ciudad: "Sevilla", // REVISAR
-  actualizado: "19 de octubre de 2026",
+  // Datos del responsable (obligatorios en el aviso legal y la privacidad)
+  titular: "Jaime Morales García",
+  email: "jaimemorr11@gmail.com",
+  ciudad: "Sevilla",
+  actualizado: "20 de octubre de 2026",
 };
 
 export const seo = {
@@ -122,6 +121,11 @@ export const novedad = {
 
 // ---------- Novedades: lo que trae cada versión (la más nueva arriba). Al añadir algo a la app, se apunta aquí. ----------
 export const versiones = [
+  { version: "2.5", fecha: "2026-10-20", titulo: "Tu semana", icono: "calendar-check", color: "#5856d6", cambios: [
+    "Resumen del domingo: cada domingo por la tarde, un aviso con lo que has gastado en la semana.",
+    "Te dice si has gastado más o menos que la semana anterior y en qué se te fue más.",
+    "Si no has apuntado nada, te lo recuerda por si se te ha olvidado algo.",
+  ] },
   { version: "2.4", fecha: "2026-10-20", titulo: "¿Me lo puedo permitir?", icono: "gauge", color: "#ff9500", cambios: [
     "«¿Me lo puedo permitir?»: dices cuánto cuesta y te dice si te llega, contando lo que llevas y los fijos que te faltan.",
     "Si no te llega, te dice desde qué día podrás o cuánto apartar al mes, y te crea una hucha para ello.",

@@ -32,6 +32,23 @@ export function racha(movs, hoy) {
   return { n, hoy: dias.has(hoy) };
 }
 
+const NOMBRES = { comida: "Comida", super: "Súper", transporte: "Transporte", ocio: "Ocio", ropa: "Ropa", subs: "Suscripciones", estudios: "Estudios", otros: "Otros" };
+
+// El domingo: lo gastado de lunes a hoy, comparado con la semana anterior, y en qué se fue más
+export function resumenSemana(movs, hoy) {
+  if (new Date(hoy + "T12:00:00Z").getUTCDay() !== 0) return null;
+  const entre = (desde, hasta) => movs.filter((m) => m.tipo === "gasto" && m.fecha >= desde && m.fecha <= hasta);
+  const semana = entre(masDias(hoy, -6), hoy), antes = entre(masDias(hoy, -13), masDias(hoy, -7));
+  const suma = (l) => l.reduce((s, m) => s + m.importe, 0), total = suma(semana), totalAntes = suma(antes);
+  if (!semana.length) return antes.length ? { titulo: "Esta semana no has apuntado nada", cuerpo: "¿Semana de ahorro o se te ha olvidado? Apunta lo que falte y mira cómo vas.", etiqueta: "semana" } : null;
+  const porCat = {};
+  for (const m of semana) porCat[m.cat] = (porCat[m.cat] || 0) + m.importe;
+  const [cat, mas] = Object.entries(porCat).sort((a, b) => b[1] - a[1])[0];
+  const dif = total - totalAntes;
+  const comparacion = !antes.length ? "" : Math.abs(dif) < 100 ? "Igual que la semana pasada. " : `${euros(Math.abs(dif))} ${dif < 0 ? "menos" : "más"} que la semana pasada. `;
+  return { titulo: `Tu semana: ${euros(total)}`, cuerpo: `${comparacion}Lo que más: ${NOMBRES[cat] || "Otros"} (${euros(mas)}).`, etiqueta: "semana" };
+}
+
 export function avisoDelDia(movs, hoy) {
   const renueva = suscripciones(movs, hoy).find((s) => s.faltan === 1);
   if (renueva) return { titulo: `Mañana se renueva ${renueva.nombre}`, cuerpo: `${euros(renueva.importe)}. ¿La sigues usando? Si no, aún estás a tiempo de darte de baja.`, etiqueta: "renovacion" };
@@ -40,6 +57,8 @@ export function avisoDelDia(movs, hoy) {
     const mes = new Date(k + "-15T12:00:00Z").toLocaleDateString("es-ES", { month: "long" });
     if (n >= 3) return { titulo: `Tu ${mes} en Bolsillo está listo`, cuerpo: "Mira en qué se te fue el dinero y compártelo en stories.", etiqueta: "mes" };
   }
+  const semana = resumenSemana(movs, hoy);
+  if (semana) return semana;
   const r = racha(movs, hoy);
   if (r.n >= 3 && !r.hoy) return { titulo: `Tu racha de ${r.n} días está en peligro`, cuerpo: "Apunta algo hoy para no perderla. ¡Son dos segundos!", etiqueta: "racha" };
   return null;

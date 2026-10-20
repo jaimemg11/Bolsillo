@@ -27,7 +27,7 @@ async function repartir(env) {
   for (const s of subs) (porUsuario[s.usuario] ||= []).push(s);
   let enviados = 0, borrados = 0;
   for (const [usuario, lista] of Object.entries(porUsuario)) {
-    const { results: movs } = await env.DB.prepare("SELECT tipo, importe, nota, fecha FROM movs WHERE usuario = ?1 AND borrado = 0 AND fecha >= ?2").bind(usuario, desde).all();
+    const { results: movs } = await env.DB.prepare("SELECT tipo, cat, importe, nota, fecha FROM movs WHERE usuario = ?1 AND borrado = 0 AND fecha >= ?2").bind(usuario, desde).all();
     const aviso = (await avisoDuelo(env, usuario, hoy).catch(() => null)) || avisoDelDia(movs, hoy);
     if (!aviso) continue;
     for (const s of lista) {
