@@ -1,0 +1,14 @@
+# Programa diario de avisos de Bolsillo: sin dirección web, solo se ejecuta a su hora
+name = "bolsillo-avisos"
+main = "index.js"
+compatibility_date = "2026-09-01"
+workers_dev = false
+
+# 18:00 UTC = 19:00 en invierno y 20:00 en verano (hora de España)
+[triggers]
+crons = ["0 18 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bolsillo"
+database_id = "e9d60c66-66fd-4996-8a03-26a1762de060"

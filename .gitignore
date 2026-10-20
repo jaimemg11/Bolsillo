@@ -1,0 +1,6 @@
+# Copias de la base de datos con datos reales: nunca a internet
+copia-antes-usuarios.sql
+migracion-usuarios.sql
+
+# Archivos temporales de Cloudflare en mi ordenador
+.wrangler/

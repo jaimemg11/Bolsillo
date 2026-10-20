@@ -1,0 +1,1545 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Bolsillo</title>
+<meta name="description" content="Tus gastos del mes, en el bolsillo.">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<script>
+  // Tema elegido en Ajustes → Apariencia (modo claro u oscuro y color): se pone antes de pintar para que no parpadee
+  try { const t = JSON.parse(localStorage.getItem("bolsillo.tema") || "{}"); if (t.modo) document.documentElement.dataset.tema = t.modo; if (t.color) document.documentElement.style.setProperty("--acento", t.color); } catch {}
+</script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Bolsillo">
+<link rel="apple-touch-icon" href="icono-180.png">
+<link rel="icon" href="icono-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root {
+    --fondo: #f2f2f7; --tarjeta: #ffffff; --texto: #000000; --suave: #6c6c70; --tenue: #aeaeb2; --linea: rgba(60, 60, 67, .14);
+    --acento: #0a84ff; --verde: #248a3d; --rojo: #d70015; --relleno: rgba(118, 118, 128, .12); --sombra: 0 1px 0 rgba(0, 0, 0, .04);
+    --curva: cubic-bezier(.2, .8, .2, 1);
+  }
+  /* Oscuro: el del móvil, salvo que en Apariencia se elija «Claro»; o siempre, si se elige «Oscuro» */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-tema="claro"]) { color-scheme: dark; --fondo: #000000; --tarjeta: #1c1c1e; --texto: #ffffff; --suave: #98989f; --tenue: #636366; --linea: rgba(84, 84, 88, .5);
+      --acento: #0a84ff; --verde: #30d158; --rojo: #ff453a; --relleno: rgba(118, 118, 128, .24); --sombra: none; --sobre-verde: #00210b; }
+  }
+  :root[data-tema="oscuro"] { color-scheme: dark; --fondo: #000000; --tarjeta: #1c1c1e; --texto: #ffffff; --suave: #98989f; --tenue: #636366; --linea: rgba(84, 84, 88, .5);
+    --verde: #30d158; --rojo: #ff453a; --relleno: rgba(118, 118, 128, .24); --sombra: none; --sobre-verde: #00210b; }
+  :root[data-tema="claro"] { color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; } /* que .campo (display:flex) no lo anule */
+  html, body { margin: 0; background: var(--fondo); color: var(--texto); }
+  body { font: 17px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased;
+    padding: env(safe-area-inset-top) 0 calc(96px + env(safe-area-inset-bottom)); overscroll-behavior-y: none; user-select: none; -webkit-user-select: none; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; border: 0; background: none; padding: 0; }
+  .num { font-variant-numeric: tabular-nums; }
+  main { max-width: 560px; margin: 0 auto; padding: 0 16px; }
+
+  /* Cabecera: mes */
+  .cabecera { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 4px; }
+  .cabecera h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -.02em; text-transform: capitalize; }
+  .flechas { display: flex; gap: 4px; align-items: center; }
+  .redondo { width: 36px; height: 36px; border-radius: 50%; background: var(--relleno); display: grid; place-items: center; color: var(--acento); }
+  .redondo svg { width: 18px; height: 18px; }
+  .redondo:disabled { opacity: .35; }
+
+  /* Resumen */
+  .resumen { background: var(--tarjeta); border-radius: 20px; padding: 18px 18px 16px; margin-top: 12px; box-shadow: var(--sombra); }
+  .etiqueta { font-size: 13px; color: var(--suave); font-weight: 500; }
+  .total { font-size: 44px; font-weight: 700; letter-spacing: -.03em; margin: 2px 0 0; line-height: 1.1; }
+  .total small { font-size: 26px; font-weight: 600; }
+  .barra { height: 8px; border-radius: 4px; background: var(--relleno); overflow: hidden; margin: 14px 0 8px; display: flex; }
+  .barra i { display: block; height: 100%; transition: width .5s var(--curva); }
+  .linea-resumen { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--suave); }
+  .linea-resumen b { color: var(--texto); font-weight: 600; }
+  .pasado { color: var(--rojo) !important; }
+  .chips-resumen { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .mini { background: var(--relleno); border-radius: 12px; padding: 10px 12px; }
+  .mini b { display: block; font-size: 18px; font-weight: 600; margin-top: 1px; }
+  .comparar { display: inline-block; margin-top: 6px; padding: 4px 10px; border-radius: 12px; font-size: 13px; line-height: 1.4; color: var(--suave); background: var(--relleno); }
+  .comparar .ico-texto { vertical-align: -2px; margin-right: 3px; }
+  .comparar b { font-weight: 600; }
+  .comparar.mejor { color: var(--verde); background: color-mix(in srgb, var(--verde) 14%, transparent); }
+  .comparar.peor { color: var(--rojo); background: color-mix(in srgb, var(--rojo) 12%, transparent); }
+  .boton-permitir { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 12px; padding: 11px 14px; border-radius: 12px; background: var(--relleno); color: var(--acento); font-size: 15px; font-weight: 600; }
+  .limite-pasado { color: var(--rojo); font-weight: 600; }
+  .limite-cerca { color: #ff9f0a; font-weight: 600; }
+  .limite-fila .medio { flex: 1; }
+  .limite-fila input { flex: none; width: 84px; text-align: right; font: inherit; font-size: 16px; color: var(--texto); background: var(--relleno); border: 0; border-radius: 10px; padding: 8px 10px; }
+  .limite-fila input:focus { outline: 2px solid var(--acento); outline-offset: 1px; }
+
+  /* Secciones */
+  h2 { font-size: 20px; font-weight: 700; margin: 28px 4px 10px; letter-spacing: -.01em; }
+  .grupo { background: var(--tarjeta); border-radius: 16px; overflow: hidden; box-shadow: var(--sombra); }
+  .fila { display: flex; align-items: center; gap: 12px; padding: 11px 16px; position: relative; width: 100%; text-align: left; }
+  .fila + .fila::before, .desliza + .desliza .fila::before { content: ""; position: absolute; top: 0; left: 64px; right: 0; border-top: .5px solid var(--linea); }
+  .fila.elegida { background: color-mix(in srgb, var(--acento) 10%, var(--tarjeta)); }
+  /* Deslizar a la izquierda para borrar */
+  .desliza { position: relative; background: var(--rojo); }
+  .desliza::after { content: "Borrar"; position: absolute; right: 20px; top: 50%; transform: translateY(-50%); color: #fff; font-weight: 600; font-size: 15px; }
+  .desliza .fila { background: var(--tarjeta); z-index: 1; transition: transform .25s var(--curva); }
+  .desliza .fila.moviendo { transition: none; }
+  .buscador { display: flex; align-items: center; gap: 8px; background: var(--relleno); border-radius: 11px; padding: 0 12px; margin: 26px 0 0; color: var(--suave); }
+  .buscador input { flex: 1; min-width: 0; border: 0; background: none; outline: none; padding: 10px 0; font-size: 16px; color: var(--texto); user-select: text; -webkit-user-select: text; }
+  .buscador input::-webkit-search-cancel-button { filter: grayscale(1); }
+  .resultado-busqueda { margin: 14px 4px 0; color: var(--suave); font-size: 15px; } .resultado-busqueda b { color: var(--texto); }
+  .filtro-activo { display: inline-flex; gap: 6px; align-items: center; background: var(--acento); color: #fff; border-radius: 16px; padding: 6px 12px; font-size: 14px; font-weight: 600; margin: -2px 4px 0; }
+  .enlace.peligro { color: var(--rojo); }
+  /* Medallas (insignias y celebraciones): círculo de color con brillo y el icono en blanco */
+  .medallon { --tam: 56px; width: var(--tam); height: var(--tam); border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--c);
+    background-image: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 55%), linear-gradient(160deg, rgba(255, 255, 255, .15), rgba(0, 0, 0, .18));
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--c) 35%, transparent), inset 0 0 0 2px rgba(255, 255, 255, .25); }
+  .medallon .ico { width: 28px; height: 28px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .2)); }
+  .insignia:not(.si) .medallon { box-shadow: none; opacity: .45; background-image: none; }
+  .medalla .medallon { --tam: 96px; margin-bottom: 6px; } .medalla .medallon .ico { width: 50px; height: 50px; }
+  .icono-blanco { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: rgba(255, 255, 255, .22); color: #fff; }
+  .icono-blanco .ico { width: 24px; height: 24px; }
+  .chip-racha { display: inline-flex; align-items: center; gap: 4px; } .ico-fuego { width: 16px; height: 16px; color: #ff9500; }
+  .banner { display: flex; gap: 12px; align-items: center; }
+  .selector-iconos { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 14px 0 0; }
+  .selector-iconos button { aspect-ratio: 1; border-radius: 12px; background: var(--tarjeta); color: var(--suave); display: grid; place-items: center; border: 2px solid transparent; box-shadow: var(--sombra); }
+  .selector-iconos button .ico { width: 24px; height: 24px; }
+  .selector-iconos button[aria-checked="true"] { border-color: var(--acento); color: var(--acento); }
+  .tarjeta-reto .icono { margin-bottom: 4px; }
+  /* Novedades de la versión */
+  .version-app { background: var(--tarjeta); border-radius: 20px; padding: 18px; box-shadow: var(--sombra); margin-bottom: 12px; }
+  .version-app__cabeza { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+  .version-app__cabeza small { display: block; color: var(--suave); font-size: 13px; } .version-app__cabeza b { font-size: 20px; }
+  .version-app ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 15px; line-height: 1.4; }
+  .version-app.nueva { box-shadow: inset 0 0 0 2px var(--acento), var(--sombra); }
+  .enlace-ruta { display: block; text-align: center; text-decoration: none; margin-top: 6px; }
+  .etiqueta-nueva { background: var(--acento); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+  /* Modo tóxico */
+  .aviso-circulo { display: flex; align-items: center; gap: 8px; background: color-mix(in srgb, #af52de 14%, var(--tarjeta)); color: #b56be0; border-radius: 12px; padding: 10px 14px; font-size: 14px; font-weight: 600; }
+  .momento { display: flex; gap: 12px; align-items: center; background: var(--tarjeta); border-radius: 16px; padding: 14px 16px; box-shadow: var(--sombra); font-size: 16px; line-height: 1.4; }
+  .premios { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .premio { background: var(--tarjeta); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 2px; box-shadow: var(--sombra); }
+  .premio .icono { margin-bottom: 6px; } .premio small { color: var(--suave); font-size: 12px; } .premio b { font-size: 17px; } .premio .num { color: var(--suave); font-size: 14px; }
+  .premio.grande { grid-column: 1 / -1; background: color-mix(in srgb, #ff2d55 12%, var(--tarjeta)); display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; }
+  .premio.grande .icono { grid-row: 1 / 4; margin: 0; width: 48px; height: 48px; border-radius: 14px; } .premio.grande .icono .ico { width: 26px; height: 26px; }
+  .reacciones { display: flex; gap: 6px; margin-top: 8px; }
+  .reaccion { min-width: 44px; height: 32px; padding: 0 8px; border-radius: 16px; background: var(--relleno); font-size: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; transition: transform .2s; }
+  .reaccion .num { font-size: 13px; font-weight: 600; color: var(--suave); }
+  .reaccion[aria-pressed="true"] { background: color-mix(in srgb, var(--acento) 22%, var(--tarjeta)); box-shadow: inset 0 0 0 1.5px var(--acento); }
+  .reaccion:active:not(:disabled) { transform: scale(1.2); }
+  .reaccion:disabled { opacity: .55; }
+  .muro-fila { align-items: flex-start; } .muro-fila .icono { margin-top: 2px; }
+  /* Encuesta de ideas */
+  .tarjeta-ideas { width: 100%; display: flex; gap: 14px; align-items: center; text-align: left; margin-top: 28px; background: var(--tarjeta); border-radius: 16px; padding: 16px; box-shadow: var(--sombra); }
+  .tarjeta-ideas b { display: block; font-size: 17px; } .tarjeta-ideas small { color: var(--suave); font-size: 14px; } .tarjeta-ideas > div { flex: 1; }
+  .voto-app { flex: none; min-width: 60px; height: 52px; border-radius: 12px; background: var(--relleno); color: var(--suave); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 12px; font-weight: 600; }
+  .voto-app .ico { width: 18px; height: 18px; }
+  .voto-app[aria-pressed="true"] { background: var(--acento); color: #fff; }
+  /* Duelos */
+  .tarjeta-duelo-vacia { display: flex; gap: 14px; align-items: flex-start; background: var(--tarjeta); border-radius: 16px; padding: 16px; box-shadow: var(--sombra); }
+  .tarjeta-duelo-vacia b { display: block; font-size: 17px; margin-bottom: 2px; } .tarjeta-duelo-vacia span:not(.icono) { color: var(--suave); font-size: 14px; line-height: 1.4; }
+  .estado-duelo { display: flex; gap: 16px; align-items: center; background: var(--tarjeta); border-radius: 16px; padding: 14px 16px; box-shadow: var(--sombra); }
+  .estado-duelo b { display: block; font-size: 22px; } .estado-duelo span { color: var(--suave); font-size: 13px; }
+  .progreso-duelo { flex: 1; height: 8px; border-radius: 4px; background: var(--relleno); overflow: hidden; } .progreso-duelo i { display: block; height: 100%; background: #ff2d55; border-radius: 4px; }
+  .pacto { display: flex; gap: 8px; align-items: center; margin-top: 10px; background: color-mix(in srgb, #ffb800 14%, var(--tarjeta)); border-radius: 12px; padding: 10px 14px; font-size: 15px; }
+  .pacto .ico { color: #ff9500; width: 18px; height: 18px; }
+  .resultado-duelo { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; background: var(--tarjeta); border-radius: 20px; padding: 20px; box-shadow: var(--sombra); }
+  .resultado-duelo b { font-size: 22px; } .resultado-duelo span:not(.medallon) { color: var(--suave); font-size: 15px; }
+  .resultado-duelo.gane { background: color-mix(in srgb, #ffb800 16%, var(--tarjeta)); }
+  .fila.marcador.yo { background: color-mix(in srgb, var(--acento) 8%, var(--tarjeta)); }
+  .puesto { width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 16px; background: var(--c);
+    background-image: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 60%); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .25); }
+  .enlaces-legales { text-align: center; font-size: 13px; color: var(--suave); margin: 20px 0 4px; }
+  .enlaces-legales a { color: var(--suave); text-decoration: underline; text-underline-offset: 2px; }
+  .bienvenida { position: fixed; inset: 0; z-index: 25; background: var(--fondo); display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; animation: aparecer .3s ease; }
+  .bienvenida .paso { width: 100%; max-width: 420px; display: flex; flex-direction: column; text-align: center; animation: aparecer .35s ease; }
+  .bienvenida h2 { font-size: 30px; margin: 10px 0 6px; letter-spacing: -.02em; }
+  .logo-bienvenida { display: flex; justify-content: center; } .logo-bienvenida img { border-radius: 20px; box-shadow: 0 10px 30px rgba(0, 122, 255, .3); }
+  .icono.grande { width: 76px; height: 76px; border-radius: 20px; } .icono.grande .ico { width: 42px; height: 42px; }
+  .lema { color: var(--suave); font-size: 17px; line-height: 1.4; margin: 0 0 22px; }
+  .ventajas { list-style: none; padding: 0; margin: 0 0 28px; text-align: left; display: grid; gap: 16px; }
+  .ventajas li { display: flex; gap: 14px; align-items: flex-start; } .ventajas .icono { width: 40px; height: 40px; } .ventajas .icono .ico { width: 22px; height: 22px; }
+  .ventajas b { display: block; font-size: 17px; } .ventajas div { color: var(--suave); font-size: 15px; line-height: 1.35; }
+  .puntos { display: flex; gap: 8px; margin-top: 26px; } .puntos i { width: 8px; height: 8px; border-radius: 50%; background: var(--relleno); }
+  .puntos i.activo { background: var(--acento); }
+  .llavero-mano { margin-top: 10px; font-size: 14px; color: var(--suave); }
+  .llavero-mano summary { color: var(--acento); font-weight: 500; cursor: pointer; padding: 6px 0; }
+  .llavero-mano ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+  .bienvenida .llavero { background: var(--tarjeta); border-radius: 14px; margin-bottom: 14px; text-align: left; overflow: hidden; }
+  .titulo-dialogo { font-size: 20px; font-weight: 700; margin: 6px 4px 6px; text-align: center; }
+  .texto-dialogo { color: var(--suave); font-size: 15px; margin: 0 8px 14px; text-align: center; line-height: 1.4; }
+  .botones-dialogo { display: grid; gap: 8px; margin-top: 16px; }
+  .boton-azul.rojo { background: var(--rojo); }
+  .aviso { display: flex; align-items: center; gap: 14px; }
+  .aviso button { color: var(--acento); font-weight: 600; font-size: 15px; padding: 2px 0; }
+  .rapidos { display: flex; gap: 8px; overflow-x: auto; margin: -6px -16px 14px; padding: 0 16px 2px; scrollbar-width: none; }
+  .rapidos::-webkit-scrollbar { display: none; }
+  .rapidos button { flex: none; background: var(--tarjeta); border-radius: 18px; padding: 8px 12px; font-size: 14px; font-weight: 500; white-space: nowrap; box-shadow: var(--sombra); }
+  .rapidos button { display: inline-flex; align-items: center; gap: 8px; padding-left: 6px; }
+  .rapidos button b { font-weight: 600; color: var(--suave); margin-left: 2px; }
+  .icono.chico { width: 24px; height: 24px; border-radius: 7px; } .icono.chico .ico { width: 14px; height: 14px; }
+  .rapidos:empty { display: none; }
+  .oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .fila:active { background: var(--relleno); }
+  .icono { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; color: #fff; background: var(--c, var(--relleno));
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 60%); box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); }
+  .icono .ico { width: 20px; height: 20px; }
+  .icono.neutro { --c: var(--relleno); color: var(--suave); background-image: none; box-shadow: none; }
+  .ico { fill: currentColor; flex: none; display: inline-block; vertical-align: middle; }
+  .ico-texto { width: 14px; height: 14px; margin: -2px 3px 0 0; }
+  .fila .medio { flex: 1; min-width: 0; }
+  .fila .titulo { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fila .sub { font-size: 13px; color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fila .cifra { font-weight: 600; white-space: nowrap; }
+  .ingreso { color: var(--verde); }
+  .dia { font-size: 13px; color: var(--suave); font-weight: 600; text-transform: uppercase; letter-spacing: .02em; margin: 20px 16px 6px; display: flex; justify-content: space-between; }
+  .cat-barra { height: 4px; border-radius: 2px; background: var(--relleno); margin-top: 6px; overflow: hidden; }
+  .cat-barra i { display: block; height: 100%; border-radius: 2px; }
+  .vacio { text-align: center; color: var(--suave); padding: 40px 24px; }
+  .vacio b { display: block; color: var(--texto); font-size: 19px; margin-bottom: 4px; }
+
+  /* Meses (gráfico) */
+  .meses { display: flex; align-items: flex-end; gap: 8px; height: 132px; padding: 16px 16px 10px; }
+  .meses button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; font-size: 12px; color: var(--suave); }
+  .meses i { width: 100%; max-width: 34px; border-radius: 6px; background: var(--relleno); min-height: 4px; transition: height .5s var(--curva); }
+  .meses .actual i { background: var(--acento); }
+  .meses .actual { color: var(--texto); font-weight: 600; }
+
+  /* Botón de añadir */
+  .anadir { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); height: 56px; padding: 0 28px; border-radius: 28px;
+    background: var(--acento); color: #fff; font-weight: 600; font-size: 17px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 24px color-mix(in srgb, var(--acento) 35%, transparent); z-index: 5; transition: transform .2s var(--curva); }
+  .anadir:active { transform: translateX(-50%) scale(.96); }
+  .anadir svg { width: 20px; height: 20px; }
+  .ajustes-boton { color: var(--acento); font-size: 17px; padding: 8px 0; }
+
+  /* Hojas (añadir / ajustes) */
+  .velo { position: fixed; inset: 0; background: rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: opacity .3s var(--curva); z-index: 10; }
+  .velo.abierto { opacity: 1; pointer-events: auto; }
+  .hoja { position: fixed; left: 0; right: 0; bottom: 0; max-width: 560px; margin: 0 auto; background: var(--fondo); border-radius: 14px 14px 0 0; z-index: 11;
+    padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(105%); visibility: hidden; transition: transform .4s var(--curva), visibility 0s .4s; max-height: calc(100% - env(safe-area-inset-top) - 12px); overflow-y: auto; }
+  .hoja.abierta { transform: none; visibility: visible; transition: transform .4s var(--curva); }
+  .asa { width: 36px; height: 5px; border-radius: 3px; background: var(--tenue); margin: 0 auto 8px; opacity: .6; }
+  .hoja-cabeza { display: flex; justify-content: space-between; align-items: center; padding: 4px 0 8px; }
+  .hoja-cabeza h3 { margin: 0; font-size: 17px; font-weight: 600; }
+  .hoja-cabeza button { color: var(--acento); font-size: 17px; min-width: 70px; text-align: left; }
+  .hoja-cabeza button:last-child { text-align: right; font-weight: 600; }
+  .hoja-cabeza button:disabled { color: var(--tenue); }
+  .segmento { display: grid; grid-template-columns: 1fr 1fr; background: var(--relleno); border-radius: 9px; padding: 2px; margin: 4px 0 14px; }
+  .segmento button { padding: 6px; border-radius: 7px; font-size: 14px; font-weight: 500; }
+  .segmento button { transition: background .2s, color .2s; }
+  .segmento button[aria-pressed="true"] { background: var(--tarjeta); box-shadow: 0 2px 6px rgba(0, 0, 0, .12); font-weight: 600; }
+  /* Gasto en rojo, ingreso en verde: que se vea de un vistazo qué estás apuntando */
+  .segmento button[data-tipo="gasto"][aria-pressed="true"] { background: var(--rojo); color: #fff; }
+  .segmento button[data-tipo="ingreso"][aria-pressed="true"] { background: var(--verde); color: var(--sobre-verde, #fff); }
+  .segmento button[data-tipo="gasto"][aria-pressed="false"] { color: var(--rojo); }
+  .segmento button[data-tipo="ingreso"][aria-pressed="false"] { color: var(--verde); }
+  #hoja-mov.es-gasto .importe span, #hoja-mov.es-gasto .importe input { color: var(--rojo); }
+  #hoja-mov.es-ingreso .importe span, #hoja-mov.es-ingreso .importe input { color: var(--verde); }
+  #hoja-mov .importe input::placeholder { color: inherit; opacity: .35; }
+  .signo { font-size: 44px; font-weight: 700; margin-right: 2px; }
+  .importe { display: flex; align-items: baseline; justify-content: center; gap: 2px; padding: 8px 0 18px; }
+  .importe input { width: 1.2ch; min-width: 1.2ch; max-width: 80%; text-align: right; font-size: 56px; font-weight: 700; letter-spacing: -.03em; border: 0; background: none; outline: none; padding: 0; caret-color: var(--acento); }
+  .importe input::placeholder { color: var(--tenue); }
+  .importe span { font-size: 34px; font-weight: 600; color: var(--suave); }
+  .cats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  .cats button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 2px 8px; border-radius: 14px; background: var(--tarjeta); font-size: 12px; font-weight: 500; border: 2px solid transparent; transition: border-color .2s; }
+  .cats button .icono { width: 34px; height: 34px; border-radius: 10px; }
+  .cats button .icono .ico { width: 19px; height: 19px; }
+  .cats button[aria-pressed="true"] { border-color: var(--acento); }
+  .campos { background: var(--tarjeta); border-radius: 12px; overflow: hidden; }
+  .campo { display: flex; align-items: center; gap: 12px; padding: 0 16px; min-height: 46px; position: relative; }
+  .campo + .campo::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--linea); }
+  .campo label { flex: none; }
+  .campo input { flex: 1; min-width: 0; border: 0; background: none; outline: none; text-align: right; color: var(--suave); padding: 12px 0; user-select: text; -webkit-user-select: text; }
+  .campo input[type=date] { -webkit-appearance: none; appearance: none; display: flex; justify-content: flex-end; }
+  .borrar { width: 100%; margin-top: 14px; background: var(--tarjeta); color: var(--rojo); border-radius: 12px; padding: 13px; font-weight: 500; }
+  .nota-ajuste { font-size: 13px; color: var(--suave); margin: 6px 16px 18px; }
+  .boton-fila { width: 100%; text-align: left; color: var(--acento); }
+  .peligro { color: var(--rojo); }
+  .aviso { position: fixed; left: 50%; top: calc(12px + env(safe-area-inset-top)); transform: translate(-50%, -140%); background: var(--tarjeta); color: var(--texto); padding: 10px 18px; border-radius: 22px;
+    font-size: 15px; font-weight: 500; box-shadow: 0 8px 30px rgba(0, 0, 0, .18); z-index: 20; transition: transform .35s var(--curva), visibility 0s .35s; white-space: nowrap; visibility: hidden; }
+  .aviso.visible { transform: translate(-50%, 0); visibility: visible; transition: transform .35s var(--curva); }
+  .titulo-grupo { font-size: 13px; font-weight: 500; color: var(--suave); text-transform: uppercase; letter-spacing: .02em; margin: 22px 16px 6px; }
+  .estado-sync { flex: 1; text-align: right; color: var(--suave); font-size: 15px; }
+  .estado-sync.ok { color: var(--verde); } .estado-sync.mal { color: var(--rojo); }
+  .pasos { margin: 0 0 8px; padding-left: 22px; font-size: 15px; line-height: 1.45; }
+  .pasos li { margin-bottom: 10px; } .pasos ul { padding-left: 18px; margin: 6px 0 0; } .pasos ul li { margin-bottom: 6px; }
+  .pasos code, .copiar code { font: 13px ui-monospace, Menlo, monospace; background: var(--relleno); padding: 1px 5px; border-radius: 5px; }
+  .copiar { display: flex; gap: 8px; align-items: center; background: var(--tarjeta); border-radius: 10px; padding: 8px 8px 8px 12px; margin-top: 6px; }
+  .copiar code { flex: 1; min-width: 0; background: none; padding: 0; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+  .copiar button { background: var(--relleno); color: var(--acento); font-size: 14px; font-weight: 600; padding: 6px 12px; border-radius: 8px; flex: none; }
+  .instalar { background: var(--tarjeta); border-radius: 16px; padding: 14px 16px; margin-top: 12px; font-size: 15px; display: flex; gap: 12px; align-items: flex-start; box-shadow: var(--sombra); }
+  .instalar p { margin: 0; flex: 1; } .instalar b { font-weight: 600; }
+  .instalar button { color: var(--suave); font-size: 20px; line-height: 1; }
+  .segmento.tres { grid-template-columns: repeat(3, 1fr); margin: 0; }
+  .muestras { display: grid; grid-template-columns: repeat(8, 1fr); justify-items: center; gap: 6px; }
+  .muestra { width: 32px; height: 32px; border-radius: 50%; background: var(--m); color: #fff; display: grid; place-items: center; transition: transform .15s var(--curva); }
+  .muestra[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--tarjeta), 0 0 0 5px var(--m); }
+  .muestra[data-cerrado] { opacity: .45; }
+  .muestra:active { transform: scale(.92); }
+  .muestra svg { width: 17px; height: 17px; fill: currentColor; }
+  .panel-rejilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .panel-rejilla .mini { background: var(--tarjeta); }
+  .panel-rejilla .mini .etiqueta { font-size: 12px; line-height: 1.2; display: block; min-height: 2.4em; }
+  .panel-rejilla .mini small { font-size: 13px; color: var(--suave); font-weight: 500; }
+  .panel-grafica { display: flex; align-items: flex-end; gap: 4px; height: 130px; background: var(--tarjeta); border-radius: 12px; padding: 12px 10px 8px; }
+  .panel-grafica > div { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; }
+  .panel-grafica i { display: block; width: 100%; min-height: 2px; border-radius: 4px 4px 2px 2px; background: var(--acento); }
+  .panel-grafica span { font-size: 11px; font-weight: 600; }
+  .panel-grafica small { font-size: 10px; color: var(--suave); }
+  .guia-instalar { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.72); display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 20px 16px calc(24px + env(safe-area-inset-bottom)); color: #fff; }
+  .guia-instalar.arriba { flex-direction: column-reverse; justify-content: flex-end; padding-top: calc(12px + env(safe-area-inset-top)); align-items: flex-end; }
+  .guia-caja { background: var(--tarjeta); color: var(--texto); border-radius: 20px; padding: 20px; max-width: 360px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+  .guia-titulo { font-size: 18px; font-weight: 700; display: block; margin-bottom: 8px; }
+  .guia-caja p { margin: 0 0 14px; font-size: 15px; line-height: 1.45; color: var(--suave); } .guia-caja p b { color: var(--texto); }
+  .guia-caja .boton-azul { width: 100%; margin-bottom: 12px; }
+  .guia-flecha { font-size: 44px; line-height: 1; margin: 10px 0; animation: guia-bote 1.1s ease-in-out infinite; }
+  .arriba .guia-flecha { margin-right: 6px; }
+  @keyframes guia-bote { 50% { transform: translateY(8px); } }
+  .arriba .guia-flecha { animation-direction: reverse; }
+  /* Barra de pestañas */
+  .pestanas { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; justify-content: space-around; align-items: center; max-width: 560px; margin: 0 auto;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--fondo) 82%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border-top: .5px solid var(--linea); }
+  .pestanas button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; font-weight: 500; color: var(--tenue); padding: 4px 0; }
+  .pestanas button svg { width: 25px; height: 25px; }
+  .pestanas button[aria-current="page"] { color: var(--acento); }
+  .pestanas .mas { flex: none; width: 54px; height: 54px; border-radius: 50%; background: var(--acento); color: #fff; justify-content: center; margin: -22px 6px 0; box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 40%, transparent); }
+  .pestanas .mas svg { width: 26px; height: 26px; }
+  .pestanas .mas:active { transform: scale(.94); }
+  .chip-racha { font-size: 15px; font-weight: 600; background: var(--relleno); border-radius: 16px; padding: 5px 10px; margin-right: 6px; }
+  /* Mes: avisos, compartir y racha */
+  .deuda { background: var(--tarjeta); border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; box-shadow: var(--sombra); }
+  .deuda.llega { box-shadow: 0 0 0 2px color-mix(in srgb, var(--verde) 55%, transparent); }
+  .deuda.espera { opacity: .8; }
+  .deuda__fila { display: flex; gap: 12px; align-items: center; }
+  .deuda__fila .medio b { display: block; font-size: 16px; font-weight: 600; }
+  .deuda__fila .medio span { display: block; font-size: 13px; color: var(--suave); margin-top: 1px; }
+  .deuda__botones { display: flex; gap: 8px; margin-top: 10px; }
+  .deuda__botones button { flex: 1; padding: 9px 10px; font-size: 15px; margin: 0; }
+  .deuda .boton-gris { background: var(--relleno); box-shadow: none; }
+  .boton-mini { flex: none; padding: 6px 12px; border-radius: 999px; background: var(--relleno); color: var(--acento); font-size: 14px; font-weight: 600; }
+  .banner { background: var(--tarjeta); border-radius: 14px; padding: 12px 14px; margin-top: 12px; font-size: 15px; box-shadow: var(--sombra); }
+  .compartir-mes { width: 100%; display: flex; gap: 12px; align-items: center; text-align: left; margin-top: 12px; padding: 14px 16px; border-radius: 16px; color: #fff; background: linear-gradient(120deg, #ff375f, #bf5af2 55%, #0a84ff); }
+  .compartir-mes span { font-size: 28px; } .compartir-mes div { flex: 1; } .compartir-mes small { display: block; opacity: .85; font-size: 13px; }
+  .racha { display: flex; gap: 16px; align-items: center; }
+  /* Metas */
+  .tarjetas-retos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .tarjeta-reto { background: var(--tarjeta); border-radius: 16px; padding: 14px; text-align: left; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--sombra); }
+  .tarjeta-reto b { font-size: 15px; font-weight: 600; } .tarjeta-reto small { font-size: 12px; color: var(--suave); line-height: 1.3; }
+  .insignias { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .insignia { background: var(--tarjeta); border-radius: 16px; padding: 14px 6px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: var(--sombra); }
+  .insignia b { font-size: 12px; font-weight: 500; color: var(--suave); text-align: center; line-height: 1.2; }
+  .insignia.si b { color: var(--texto); }
+  .enlace { color: var(--acento); font-size: 16px; font-weight: 500; }
+  .progreso { height: 10px; border-radius: 5px; background: var(--relleno); overflow: hidden; margin: 6px 16px 0; } .progreso i { display: block; height: 100%; background: var(--verde); border-radius: 5px; }
+  /* Celebración */
+  .celebracion { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(0, 0, 0, .35); overflow: hidden; animation: aparecer .25s ease; transition: opacity .4s; }
+  .celebracion.fuera { opacity: 0; }
+  .medalla { background: var(--tarjeta); border-radius: 28px; padding: 26px 34px; display: flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 20px 60px rgba(0, 0, 0, .3); animation: saltar .6s cubic-bezier(.2, 1.6, .4, 1); }
+  .medalla b { font-size: 20px; } .medalla small { color: var(--suave); font-size: 15px; }
+  .celebracion i { position: absolute; top: -12px; width: 9px; height: 14px; border-radius: 2px; animation: caer 2.2s ease-in forwards; }
+  @keyframes caer { to { top: 110%; transform: rotate(720deg) translateX(40px); } }
+  @keyframes saltar { from { transform: scale(.3); opacity: 0; } }
+  @keyframes aparecer { from { opacity: 0; } }
+  /* Grupos */
+  .botones-par { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .boton-azul, .boton-gris { border-radius: 12px; padding: 13px; font-weight: 600; font-size: 16px; }
+  .boton-azul { background: var(--acento); color: #fff; } .boton-gris { background: var(--tarjeta); color: var(--acento); box-shadow: var(--sombra); }
+  .check { display: flex; gap: 10px; align-items: center; padding: 10px 16px; font-size: 16px; } .check input { width: 20px; height: 20px; accent-color: var(--acento); }
+  .campo select { flex: 1; min-width: 0; border: 0; background: none; text-align: right; color: var(--suave); font-size: 16px; direction: rtl; padding: 12px 0; }
+  .wrapped-img { width: 100%; max-width: 300px; display: block; margin: 4px auto 14px; border-radius: 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <section class="vista" id="vista-mes">
+  <div class="cabecera">
+    <h1 id="mes">Bolsillo</h1>
+    <div class="flechas"><span class="chip-racha num" id="chip-racha" hidden></span>
+      <button class="redondo" id="mes-antes" aria-label="Mes anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="redondo" id="mes-despues" aria-label="Mes siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+  </div>
+  <div id="instalar"></div>
+  <section class="resumen" id="resumen" aria-live="polite"></section>
+  <div id="extras-mes"></div>
+  <div id="categorias"></div>
+  <div id="extras-subs"></div>
+  <div id="historico"></div>
+  <div class="buscador" id="buscador" hidden><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="buscar" type="search" placeholder="Buscar en todos tus gastos (Glovo, cine…)" autocomplete="off" enterkeyhint="search" aria-label="Buscar gastos"></div>
+  <div id="lista"></div>
+  </section>
+  <section class="vista" id="vista-grupos" hidden></section>
+  <section class="vista" id="vista-metas" hidden></section>
+</main>
+
+<nav class="pestanas" aria-label="Secciones">
+  <button data-vista="mes" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Mes</button>
+  <button data-vista="grupos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.6-.2 4.8 1.4 5.5 4.4"/></svg>Amigos</button>
+  <button class="mas" id="abrir-anadir" aria-label="Añadir gasto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button data-vista="metas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/></svg>Metas</button>
+  <button id="abrir-ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes</button>
+</nav>
+
+<div class="velo" id="velo"></div>
+
+<!-- Añadir / editar movimiento -->
+<section class="hoja" id="hoja-mov" role="dialog" aria-modal="true" aria-labelledby="titulo-mov" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-cerrar>Cancelar</button><h3 id="titulo-mov">Nuevo gasto</h3><button id="guardar-mov" disabled>Guardar</button></div>
+  <div class="segmento" role="group" aria-label="Tipo"><button data-tipo="gasto" aria-pressed="true">Gasto</button><button data-tipo="ingreso" aria-pressed="false">Ingreso</button></div>
+  <div class="importe"><span class="signo" id="signo" aria-hidden="true">−</span><input id="importe" class="num" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="Importe en euros"><span>€</span></div>
+  <div class="rapidos" id="rapidos" aria-label="Tus gastos habituales"></div>
+  <div class="cats" id="cats" role="group" aria-label="Categoría"></div>
+  <div class="campos">
+    <div class="campo"><label for="nota">Nota</label><input id="nota" placeholder="Opcional" maxlength="60" autocomplete="off" enterkeyhint="done"></div>
+    <div class="campo"><label for="fecha">Fecha</label><input id="fecha" type="date"></div>
+  </div>
+  <div class="campos" id="fila-oculto" style="margin-top:14px" hidden><label class="check"><input type="checkbox" id="mov-oculto"> Ocultar en mis círculos (modo tóxico)</label></div>
+  <button class="borrar" id="borrar-mov" hidden>Borrar movimiento</button>
+</section>
+
+<!-- Ajustes -->
+<section class="hoja" id="hoja-ajustes" role="dialog" aria-modal="true" aria-labelledby="titulo-ajustes" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><span style="min-width:70px"></span><h3 id="titulo-ajustes">Ajustes</h3><button data-cerrar>Listo</button></div>
+  <div class="campos">
+    <div class="campo"><label for="presupuesto">Presupuesto al mes</label><input id="presupuesto" class="num" inputmode="decimal" placeholder="Sin límite" autocomplete="off"></div>
+  </div>
+  <div class="campos" style="margin-top:10px">
+    <div class="campo"><label for="dia-paga">Cobro el día</label><select id="dia-paga"><option value="">Fin de mes (normal)</option></select></div>
+  </div>
+  <p class="nota-ajuste">Con presupuesto, Bolsillo te dice cuánto te queda y cuánto puedes gastar al día. Si cobras la paga otro día (por ejemplo el 15), elígelo y las cuentas irán de paga a paga.</p>
+  <div class="campos"><div class="campo"><button class="boton-fila" id="abrir-fijos">Gastos e ingresos fijos</button><span class="estado-sync" id="cuantos-fijos"></span></div></div>
+  <p class="nota-ajuste">El alquiler, el gimnasio, Spotify o la paga: se apuntan solos cada mes el día que toca.</p>
+  <div class="campos"><div class="campo"><button class="boton-fila" id="abrir-limites">Límites por categoría</button><span class="estado-sync" id="cuantos-limites"></span></div></div>
+  <p class="nota-ajuste">Por ejemplo, 60 € al mes en Ocio. Te avisa al llegar al 80 % y si te pasas.</p>
+  <h4 class="titulo-grupo">Apariencia</h4>
+  <div class="campos" id="apariencia"></div>
+  <h4 class="titulo-grupo">Nube y pago automático</h4>
+  <div class="campos" id="sync-campos"></div>
+  <p class="nota-ajuste" id="sync-nota"></p>
+  <div class="campos"><div class="campo"><button class="boton-fila" id="abrir-voz">Apuntar con Siri o con dos toques</button></div></div>
+  <p class="nota-ajuste">«Oye Siri, apuntar gasto» → «5 euros bus», y listo. Necesita tu nube.</p>
+  <div class="campos">
+    <div class="campo"><button class="boton-fila" id="exportar-csv">Exportar a Excel (CSV)</button></div>
+    <div class="campo"><button class="boton-fila" id="exportar-copia">Guardar copia de seguridad</button></div>
+    <div class="campo"><button class="boton-fila" id="importar-copia">Restaurar copia de seguridad</button></div>
+  </div>
+  <p class="nota-ajuste" id="nota-datos"></p>
+  <div class="campos">
+    <div class="campo"><button class="boton-fila peligro" id="borrar-todo">Borrar todos los movimientos</button></div>
+    <div class="campo" id="fila-desconectar" hidden><button class="boton-fila peligro" id="desconectar">Desconectar este móvil de la nube</button></div>
+    <div class="campo" id="fila-borrar-nube" hidden><button class="boton-fila peligro" id="borrar-nube">Borrar mi nube</button></div>
+  </div>
+  <div class="campos" style="margin-top:22px"><div class="campo"><button class="boton-fila" id="abrir-novedades">Novedades de la app</button><span class="estado-sync" id="version-actual"></span></div>
+    <div class="campo" id="fila-panel" hidden><button class="boton-fila" id="abrir-panel">Panel de uso</button><span class="estado-sync">Solo tú</span></div></div>
+  <p class="enlaces-legales"><a href="/conoce/">Qué es Bolsillo</a> · <a href="/novedades/">Novedades</a> · <a href="/privacidad/">Privacidad</a> · <a href="/aviso-legal/">Aviso legal</a></p>
+  <input type="file" id="archivo-copia" accept=".json,application/json" hidden>
+</section>
+
+<!-- Atajo de Apple Pay -->
+<section class="hoja" id="hoja-applepay" role="dialog" aria-modal="true" aria-labelledby="titulo-applepay" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-volver-ajustes>Ajustes</button><h3 id="titulo-applepay">Pago automático</h3><span style="min-width:70px"></span></div>
+  <div class="segmento" role="group" aria-label="Tu móvil"><button data-so="iphone" aria-pressed="true">iPhone · Apple Pay</button><button data-so="android" aria-pressed="false">Android · Wallet</button></div>
+  <div id="pago-iphone">
+  <p class="nota-ajuste" style="margin-top:0">Cada vez que pagues con Apple Pay, el iPhone le manda el importe y la tienda a Bolsillo y se apunta solo, con la categoría adivinada por la tienda. Se monta una sola vez<span id="applepay-tiempo"> con la app <b>Atajos</b> (unos 3 minutos)</span>:</p>
+  <ol class="pasos" id="applepay-rapido" hidden>
+    <li>Copia tu clave:
+      <div class="copiar"><code id="clave-applepay"></code><button data-copiar="clave-applepay">Copiar</button></div></li>
+    <li><a id="enlace-atajo" class="boton-azul" style="display:block;text-align:center;text-decoration:none;margin:6px 0" target="_blank" rel="noopener">Añadir el atajo «Bolsillo · Apple Pay»</a>
+      Cuando te pregunte por la clave, pégala y pulsa <b>Añadir atajo</b>.</li>
+    <li>Apple no deja que una web active automatizaciones, así que este paso es tuyo (30 segundos): <b>Atajos</b> → <b>Automatización</b> → <b>+</b> → <b>Transacción</b> → marca tus tarjetas → <b>Ejecutar inmediatamente</b> → desactiva <b>Notificar al ejecutar</b> → <b>Siguiente</b> → elige <b>Bolsillo · Apple Pay</b>.</li>
+  </ol>
+  <details class="llavero-mano" id="applepay-mano"><summary>Hacerlo a mano</summary>
+  <ol class="pasos">
+    <li>Abre <b>Atajos</b> → pestaña <b>Automatización</b> → <b>Nueva automatización</b> (o el <b>+</b>).</li>
+    <li>Elige <b>Transacción</b>. Marca tus tarjetas, deja <b>Al pulsar</b>, elige <b>Ejecutar inmediatamente</b> y desactiva <b>Notificar al ejecutar</b>. Pulsa <b>Siguiente</b>.</li>
+    <li><b>Nuevo atajo en blanco</b> → busca y añade la acción <b>Obtener contenido de URL</b>.</li>
+    <li>Pulsa <b>Copiar</b> (no la selecciones a mano: lleva tu clave dentro y el iPhone la corta por los guiones), toca «URL» en la acción y pégala:
+      <div class="copiar"><code id="url-applepay"></code><button data-copiar="url-applepay">Copiar</button></div></li>
+    <li>Toca la flechita <b>›</b> de la acción y pon:
+      <ul>
+        <li><b>Método:</b> POST</li>
+        <li><b>Encabezados:</b> no hace falta ninguno (si pusiste el de Authorization, bórralo).</li>
+        <li><b>Cuerpo de la solicitud:</b> JSON. Añade dos campos de tipo <b>Texto</b>:<br>
+          <code>importe</code> → toca el valor, elige la variable <b>Entrada del atajo</b>, tócala otra vez y escoge <b>Importe</b>.<br>
+          <code>tienda</code> → igual, pero escoge <b>Comercio</b>.</li>
+      </ul></li>
+    <li>No añadas <b>Mostrar notificación</b> ni nada más: con los avisos de Bolsillo activados, es Bolsillo quien te avisa de lo apuntado.</li>
+    <li>Pulsa <b>OK</b> y listo. Abre Bolsillo después de pagar y verás el gasto con la etiqueta  Pay.</li>
+  </ol>
+  </details>
+  </div>
+  <div id="pago-android" hidden>
+  <p class="nota-ajuste" style="margin-top:0">Cuando pagas con el móvil, <b>Google Wallet</b> te enseña una notificación con la tienda y el importe. La app gratuita <b>MacroDroid</b> se la pasa a Bolsillo y el gasto se apunta solo, con su categoría. Se monta una sola vez (unos 3 minutos):</p>
+  <ol class="pasos">
+    <li>Instala <b>MacroDroid</b> (gratis): <a class="enlace" href="https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid" target="_blank" rel="noopener">abrir en Google Play</a>.</li>
+    <li>Pulsa <b>Añadir macro</b>. En <b>Disparadores</b> pulsa <b>+</b> → <b>Notificación</b> → <b>Notificación recibida</b> → <b>Seleccionar aplicaciones</b> → marca <b>Google Wallet</b> y también <b>Servicios de Google Play</b> (en algunos móviles el aviso de pago sale como «Google Pay» desde ahí) → en el texto deja <b>Cualquiera</b>. Si te pide acceso a las notificaciones, dáselo.</li>
+    <li>En <b>Acciones</b> pulsa <b>+</b> → <b>Conectividad</b> → <b>Solicitud HTTP</b>. Método <b>POST</b>. Pulsa <b>Copiar</b> y pega esto en la URL:
+      <div class="copiar"><code id="url-pago"></code><button data-copiar="url-pago">Copiar</button></div></li>
+    <li>En el <b>cuerpo</b> de la solicitud elige <b>text/plain</b> y pega esto (son el título y el texto de la notificación):
+      <div class="copiar"><code id="cuerpo-pago">[not_title] [notification]</code><button data-copiar="cuerpo-pago">Copiar</button></div>
+      Si tu MacroDroid usa otros nombres, mételos con el botón de <b>texto mágico</b> (…): <b>Título de la notificación</b> y <b>Texto de la notificación</b>.</li>
+    <li>Ponle de nombre <b>Bolsillo</b> y guarda (✓). Paga algo pequeño con el móvil, abre Bolsillo y verás el gasto con la etiqueta <b>Wallet</b>.</li>
+  </ol>
+  <p class="nota-ajuste">Google Wallet avisa del pago <b>uno o dos minutos después</b>, así que el gasto tarda eso en aparecer. Comprueba que sus avisos de compras están activados: Ajustes del móvil → Aplicaciones → Google Wallet → Notificaciones → <b>Transacciones</b>. Si pagas con la app de tu banco en vez de con Google Wallet, marca esa app en el paso 2 (solo una de las dos, para no apuntar el gasto dos veces). Las notificaciones que no son pagos se ignoran solas. En Xiaomi, Huawei o Samsung, pon MacroDroid en Ajustes → Batería → <b>Sin restricciones</b> para que no se cierre.</p>
+  </div>
+  <button class="borrar" style="color:var(--acento)" id="probar-applepay">Probar con un pago de ejemplo</button>
+  <p class="nota-ajuste" id="resultado-prueba">Este botón no apunta nada ni manda avisos: solo comprueba aquí mismo que Bolsillo conecta con tu nube. Para probar el atajo de verdad, paga algo pequeño con Apple Pay y abre Bolsillo.</p>
+</section>
+
+<!-- Límites por categoría -->
+<section class="hoja" id="hoja-limites" role="dialog" aria-modal="true" aria-labelledby="titulo-limites" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-volver-ajustes>Ajustes</button><h3 id="titulo-limites">Límites</h3><span style="min-width:70px"></span></div>
+  <p class="nota-ajuste" style="margin-top:0" id="limites-intro"></p>
+  <div id="limites-cuerpo"></div>
+</section>
+
+<!-- Gastos e ingresos fijos -->
+<section class="hoja" id="hoja-fijos" role="dialog" aria-modal="true" aria-labelledby="titulo-fijos" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-volver-ajustes>Ajustes</button><h3 id="titulo-fijos">Fijos</h3><button id="nuevo-fijo">Añadir</button></div>
+  <div id="fijos-cuerpo"></div>
+</section>
+<section class="hoja" id="hoja-fijo" role="dialog" aria-modal="true" aria-labelledby="titulo-fijo" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button id="fijo-volver">Fijos</button><h3 id="titulo-fijo">Nuevo fijo</h3><button id="guardar-fijo">Guardar</button></div>
+  <div class="segmento" role="group" aria-label="Tipo"><button data-fijo-tipo="gasto" aria-pressed="true">Gasto</button><button data-fijo-tipo="ingreso" aria-pressed="false">Ingreso</button></div>
+  <div class="campos">
+    <div class="campo"><label for="fijo-nombre">Qué es</label><input id="fijo-nombre" placeholder="Alquiler, gimnasio, Spotify…" maxlength="40" autocomplete="off"></div>
+    <div class="campo"><label for="fijo-importe">Importe</label><input id="fijo-importe" class="num" inputmode="decimal" placeholder="0,00 €" autocomplete="off"></div>
+    <div class="campo"><label for="fijo-cat">Categoría</label><select id="fijo-cat"></select></div>
+    <div class="campo"><label for="fijo-dia">Cada mes, el día</label><select id="fijo-dia"></select></div>
+  </div>
+  <div class="campos" id="fila-fijo-ya" style="margin-top:10px"><label class="check"><input type="checkbox" id="fijo-ya" checked> <span id="texto-fijo-ya">Apuntarlo también este mes</span></label></div>
+  <p class="nota-ajuste" id="nota-fijo"></p>
+  <button class="borrar" id="fijo-borrar" hidden>Dejar de apuntarlo</button>
+</section>
+
+<!-- Hucha -->
+<section class="hoja" id="hoja-hucha" role="dialog" aria-modal="true" aria-labelledby="titulo-hucha" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-cerrar>Cerrar</button><h3 id="titulo-hucha">Nueva hucha</h3><button id="guardar-hucha">Guardar</button></div>
+  <div class="campos">
+    <div class="campo"><label for="hucha-nombre">Para qué</label><input id="hucha-nombre" placeholder="Portátil nuevo" maxlength="30" autocomplete="off"></div>
+    <div class="campo"><label for="hucha-objetivo">Objetivo</label><input id="hucha-objetivo" class="num" inputmode="decimal" placeholder="300 €" autocomplete="off"></div>
+  </div>
+  <div class="selector-iconos" id="hucha-iconos" role="radiogroup" aria-label="Icono de la hucha"></div>
+  <div id="hucha-progreso"></div>
+  <div id="hucha-aportar" hidden>
+    <h4 class="titulo-grupo">Mover dinero</h4>
+    <div class="campos"><div class="campo"><label for="hucha-cantidad">Cantidad</label><input id="hucha-cantidad" class="num" inputmode="decimal" placeholder="20 €" autocomplete="off"></div></div>
+    <div class="botones-par"><button class="boton-azul" id="hucha-mas">Meter</button><button class="boton-gris" id="hucha-menos">Sacar</button></div>
+  </div>
+  <button class="borrar" id="hucha-borrar" hidden>Borrar hucha</button>
+</section>
+
+<!-- Tu mes para compartir -->
+<section class="hoja" id="hoja-wrapped" role="dialog" aria-modal="true" aria-labelledby="titulo-wrapped" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-cerrar>Cerrar</button><h3 id="titulo-wrapped">Tu mes</h3><span style="min-width:70px"></span></div>
+  <img class="wrapped-img" id="wrapped-img" alt="Tarjeta con el resumen de tu mes">
+  <button class="boton-azul" style="width:100%" id="compartir-wrapped">Compartir en stories</button>
+  <p class="nota-ajuste">Se comparte solo la imagen: nadie ve tus movimientos.</p>
+</section>
+
+<!-- Grupo -->
+<section class="hoja" id="hoja-grupo" role="dialog" aria-modal="true" aria-labelledby="titulo-grupo" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-cerrar>Cerrar</button><h3 id="titulo-grupo">Grupo</h3><span style="min-width:70px"></span></div>
+  <div id="grupo-cuerpo"></div>
+</section>
+<section class="hoja" id="hoja-novedades" role="dialog" aria-modal="true" aria-labelledby="titulo-novedades" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><span style="min-width:70px"></span><h3 id="titulo-novedades">Novedades</h3><button data-cerrar>Listo</button></div>
+  <div id="novedades-cuerpo"></div>
+  <a class="boton-gris enlace-ruta" href="/novedades/">Ver la hoja de ruta y votar lo siguiente</a>
+</section>
+<section class="hoja" id="hoja-panel" role="dialog" aria-modal="true" aria-labelledby="titulo-panel" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-volver-ajustes>Ajustes</button><h3 id="titulo-panel">Panel de uso</h3><button id="refrescar-panel">Actualizar</button></div>
+  <div id="panel-cuerpo"></div>
+</section>
+<section class="hoja" id="hoja-circulo" role="dialog" aria-modal="true" aria-labelledby="titulo-circulo" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-cerrar>Cerrar</button><h3 id="titulo-circulo">Círculo</h3><span style="min-width:70px"></span></div>
+  <div id="circulo-cuerpo"></div>
+</section>
+<section class="hoja" id="hoja-ideas" role="dialog" aria-modal="true" aria-labelledby="titulo-ideas" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-cerrar>Cerrar</button><h3 id="titulo-ideas">Tú decides</h3><span style="min-width:70px"></span></div>
+  <p class="nota-ajuste" style="margin-top:0">Vota lo que quieras ver antes en Bolsillo. La idea con más votos es la siguiente que llega. <span id="ideas-votantes"></span></p>
+  <div class="grupo" id="ideas-lista"></div>
+  <h4 class="titulo-grupo">¿Echas algo en falta?</h4>
+  <div class="campos"><div class="campo"><input id="idea-propia" style="text-align:left;color:var(--texto)" maxlength="300" placeholder="Me gustaría que Bolsillo…" autocomplete="off"><button class="enlace" id="enviar-idea">Enviar</button></div></div>
+  <p class="nota-ajuste">Solo lo lee el equipo de Bolsillo.</p>
+</section>
+<section class="hoja" id="hoja-duelo" role="dialog" aria-modal="true" aria-labelledby="titulo-duelo" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-cerrar>Cerrar</button><h3 id="titulo-duelo">Duelo</h3><span style="min-width:70px"></span></div>
+  <div id="duelo-cuerpo"></div>
+</section>
+<section class="hoja" id="hoja-gasto-grupo" role="dialog" aria-modal="true" aria-labelledby="titulo-gasto-grupo" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button id="gg-volver">Volver</button><h3 id="titulo-gasto-grupo">Gasto del grupo</h3><button id="guardar-gasto-grupo">Guardar</button></div>
+  <div class="campos">
+    <div class="campo"><label for="gg-concepto">Concepto</label><input id="gg-concepto" placeholder="Compra del súper" maxlength="60" autocomplete="off"></div>
+    <div class="campo"><label for="gg-importe">Importe</label><input id="gg-importe" class="num" inputmode="decimal" placeholder="0 €" autocomplete="off"></div>
+    <div class="campo"><label for="gg-pagador">Pagó</label><select id="gg-pagador"></select></div>
+  </div>
+  <h4 class="titulo-grupo">Entre quién (a partes iguales)</h4>
+  <div class="campos" id="gg-entre"></div>
+  <div class="campos" style="margin-top:14px" id="fila-gg-mio">
+    <label class="check"><input type="checkbox" id="gg-mio" checked> Apuntar mi parte en mis gastos</label>
+    <div class="campo"><label for="gg-cat">Categoría</label><select id="gg-cat"></select></div>
+  </div>
+  <button class="borrar" id="gg-borrar" hidden>Borrar gasto</button>
+</section>
+
+<!-- Apuntar con la voz -->
+<section class="hoja" id="hoja-voz" role="dialog" aria-modal="true" aria-labelledby="titulo-voz" aria-hidden="true">
+  <div class="asa"></div>
+  <div class="hoja-cabeza"><button data-volver-ajustes>Ajustes</button><h3 id="titulo-voz">Siri y dos toques</h3><span style="min-width:70px"></span></div>
+  <p class="nota-ajuste" style="margin-top:0">Crea el atajo una vez (2 minutos) y apunta sin abrir la app: «Oye Siri, apuntar gasto» → «5 euros bus».</p>
+  <ol class="pasos">
+    <li>Abre <b>Atajos</b> → pestaña <b>Atajos</b> → <b>+</b>. Ponle de nombre <b>Apuntar gasto</b> (es lo que dirás a Siri).</li>
+    <li>Añade la acción <b>Dictar texto</b> (idioma: Español).</li>
+    <li>Añade <b>Obtener contenido de URL</b>, pulsa <b>Copiar</b> y pega esta dirección en «URL»:
+      <div class="copiar"><code id="url-voz"></code><button data-copiar="url-voz">Copiar</button></div></li>
+    <li>En la flechita <b>›</b>: <b>Método</b> POST · <b>Cuerpo de la solicitud</b> JSON · añade un campo de texto <code>texto</code> con la variable <b>Texto dictado</b>.</li>
+    <li>Añade <b>Obtener valor de diccionario</b> (clave <code>texto</code>) y <b>Decir</b> ese valor, para que Siri te confirme lo apuntado.</li>
+    <li><b>Dos toques en la parte de atrás del iPhone:</b> Ajustes del iPhone → Accesibilidad → Tocar → <b>Toque atrás</b> → Doble toque → <b>Apuntar gasto</b>.</li>
+  </ol>
+  <h4 class="titulo-grupo">Prueba qué entiende</h4>
+  <div class="campos"><div class="campo"><input id="frase-voz" style="text-align:left;color:var(--texto)" placeholder="Gasté 12,50 en una cena" autocomplete="off"><button class="enlace" id="probar-voz">Probar</button></div></div>
+  <p class="nota-ajuste" id="resultado-voz">La prueba no apunta nada.</p>
+</section>
+
+<!-- Bienvenida: la primera vez que se abre -->
+<section class="bienvenida" id="bienvenida" hidden aria-labelledby="titulo-bienvenida">
+  <div class="paso" data-paso="1">
+    <div class="logo-bienvenida"><img src="icono-192.png" alt="" width="84" height="84"></div>
+    <h2 id="titulo-bienvenida">Bolsillo</h2>
+    <p class="lema">Tus gastos del mes, sin líos.</p>
+    <ul class="ventajas">
+      <li><span class="icono" data-ico="lightning" style="--c:#ff9500"></span><div><b>Apunta en 2 segundos</b>Con el +, con tu voz o solo pagando con el móvil (Apple Pay o Google Wallet).</div></li>
+      <li><span class="icono" data-ico="lock-key" style="--c:#28a745"></span><div><b>Sin dar acceso a tu banco</b>Ni email, ni anuncios. Tus datos son tuyos.</div></li>
+      <li><span class="icono" data-ico="medal" style="--c:#af52de"></span><div><b>Retos, huchas e insignias</b>Ahorrar también puede ser un juego.</div></li>
+    </ul>
+    <button class="boton-azul" data-siguiente>Empezar</button>
+  </div>
+  <div class="paso" data-paso="2" hidden>
+    <div class="logo-bienvenida"><span class="icono grande" data-ico="target" style="--c:#ff2d55"></span></div>
+    <h2>¿Cuánto quieres gastar al mes?</h2>
+    <p class="lema">Te diré cuánto te queda y cuánto puedes gastar cada día. Puedes cambiarlo cuando quieras.</p>
+    <div class="importe" style="padding:4px 0 14px"><input id="bv-presupuesto" class="num" inputmode="decimal" placeholder="250" autocomplete="off" aria-label="Presupuesto al mes"><span>€</span></div>
+    <div class="campos" style="text-align:left"><div class="campo"><label for="bv-paga">Cobro la paga</label><select id="bv-paga"><option value="">a fin de mes</option></select></div></div>
+    <button class="boton-azul" data-siguiente style="margin-top:18px">Siguiente</button>
+    <button class="enlace" data-saltar style="margin-top:12px">Ahora no</button>
+  </div>
+  <div class="paso" data-paso="3" hidden>
+    <div class="logo-bienvenida"><span class="icono grande" data-ico="cloud-check" style="--c:#007aff"></span></div>
+    <h2>Tu nube, gratis</h2>
+    <p class="lema">Para que no pierdas nada si cambias de móvil, para los grupos con amigos y para que Apple Pay apunte solo. Sin email: te damos una clave y la guardas en el llavero de iCloud.</p>
+    <div id="bv-llavero"></div>
+    <button class="boton-azul" id="bv-crear-nube">Crear mi nube</button>
+    <button class="enlace" id="bv-tengo-clave" style="margin-top:12px">Ya tengo una clave</button>
+    <button class="enlace" data-terminar style="margin-top:8px;color:var(--suave)">Ahora no</button>
+    <p class="enlaces-legales">Al crear tu nube aceptas la <a href="/privacidad/">política de privacidad</a>.</p>
+  </div>
+  <div class="puntos" aria-hidden="true"><i></i><i></i><i></i></div>
+</section>
+
+<!-- Diálogo genérico (sustituye a prompt/confirm) -->
+<section class="hoja" id="hoja-dialogo" role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo" aria-hidden="true">
+  <div class="asa"></div>
+  <h3 class="titulo-dialogo" id="titulo-dialogo"></h3>
+  <p class="texto-dialogo" id="texto-dialogo"></p>
+  <div id="campos-dialogo"></div>
+  <div class="botones-dialogo"><button class="boton-azul" id="ok-dialogo">Aceptar</button><button class="boton-gris" id="cancelar-dialogo">Cancelar</button></div>
+</section>
+
+<div class="aviso" id="aviso" role="status"></div>
+
+<script src="iconos.js"></script>
+<script>
+document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.dataset.ico)));
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const ANDROID = /Android/i.test(navigator.userAgent);
+  // Chrome avisa una sola vez de que se puede instalar: se guarda para el botón «Instalar Bolsillo»
+  let pedirInstalar = null;
+  addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); pedirInstalar = e; });
+  const CLAVE = "bolsillo.v1";
+  const CATS = {
+    gasto: [
+      ["comida", "Comida", "fork-knife", "#ff9500"], ["super", "Súper", "shopping-cart-simple", "#30b0c7"], ["transporte", "Transporte", "bus", "#007aff"], ["ocio", "Ocio", "ticket", "#af52de"],
+      ["ropa", "Ropa", "t-shirt", "#ff2d55"], ["subs", "Suscripciones", "arrows-clockwise", "#5856d6"], ["estudios", "Estudios", "graduation-cap", "#28a745"], ["otros", "Otros", "package", "#8e8e93"],
+    ],
+    ingreso: [
+      ["paga", "Paga", "wallet", "#28a745"], ["trabajo", "Trabajo", "briefcase", "#007aff"], ["ventas", "Ventas", "tag", "#ff9500"], ["regalo", "Regalo", "gift", "#ff2d55"],
+      ["devolucion", "Devolución", "arrow-u-up-left", "#30b0c7"],
+    ],
+  };
+  const catDe = (tipo, id) => CATS[tipo].find((c) => c[0] === id) || CATS[tipo][CATS[tipo].length - 1];
+
+  // ---------- Datos (solo en el dispositivo) ----------
+  // extra: paga, huchas, retos e insignias (se sincronizan como ajustes; extraPend = cambiado aquí y sin subir)
+  const vacio = () => ({ version: 1, movs: [], presupuesto: null, extra: { paga: null, huchas: [], retos: [], insignias: {}, ocultos: [] }, extraAct: {}, extraPend: {} });
+  let datos = vacio();
+  try { const g = JSON.parse(localStorage.getItem(CLAVE)); if (g && Array.isArray(g.movs)) datos = { ...vacio(), ...g, extra: { ...vacio().extra, ...(g.extra || {}) } }; } catch {}
+  const guardar = () => { try { localStorage.setItem(CLAVE, JSON.stringify(datos)); } catch { avisar("No se ha podido guardar"); } };
+  if (navigator.storage?.persist) navigator.storage.persist().catch(() => {}); // que el sistema no lo borre
+  const vivos = () => datos.movs.filter((m) => !m.borrado); // los borrados se guardan marcados hasta que llegan a la nube
+
+  // ---------- Nube (Cloudflare): sincroniza con la base de datos y recibe los pagos de Apple Pay ----------
+  // Cada cambio local se marca "pend" hasta que el servidor lo confirma; mientras, lo local manda. Lo demás viene de la nube.
+  const CLAVE_SYNC = "bolsillo.sync";
+  let sync = {}; try { sync = JSON.parse(localStorage.getItem(CLAVE_SYNC)) || {}; } catch {}
+  const guardarSync = () => { try { localStorage.setItem(CLAVE_SYNC, JSON.stringify(sync)); } catch {} };
+  let estadoSync = sync.clave ? "pendiente" : "apagado", sincronizando = null, otraVez = false;
+  const api = (ruta, cuerpo, clave = sync.clave) => fetch("api/" + ruta, { method: cuerpo ? "POST" : "GET", headers: { "Content-Type": "application/json", Authorization: "Bearer " + clave }, body: cuerpo ? JSON.stringify(cuerpo) : undefined, cache: "no-store" });
+
+  async function sincronizar() {
+    if (!sync.clave) return;
+    if (sincronizando) { otraVez = true; return; }
+    sincronizando = (async () => {
+      const enviados = datos.movs.filter((m) => m.pend).map(({ pend, ...m }) => m);
+      const presupuesto = datos.presupuestoPend ? { valor: datos.presupuesto, actualizado: datos.presupuestoAct } : undefined;
+      try {
+        const ajustes = Object.fromEntries(Object.keys(datos.extraPend || {}).map((k) => [k, { valor: datos.extra[k], actualizado: datos.extraAct[k] }]));
+        const r = await api("sync", { desde: sync.desde || 0, cambios: enviados, presupuesto, ajustes });
+        if (r.status === 401) { estadoSync = "clave"; return; }
+        if (!r.ok) throw new Error();
+        const j = await r.json();
+        const porId = new Map(datos.movs.map((m) => [m.id, m]));
+        for (const e of enviados) { const l = porId.get(e.id); if (l && l.actualizado === e.actualizado) delete l.pend; }
+        if (presupuesto && datos.presupuestoAct === presupuesto.actualizado) datos.presupuestoPend = false;
+        for (const { servido, ...s } of j.movs) {
+          const l = porId.get(s.id);
+          if (l?.pend) continue; // cambiado aquí y aún sin subir: se queda lo de este iPhone
+          if (s.borrado) { if (l) l.borrado = true; continue; }
+          if (l) Object.assign(l, s, { borrado: false }); else { datos.movs.push(s); porId.set(s.id, s); }
+        }
+        if (j.presupuesto && !datos.presupuestoPend) { datos.presupuesto = j.presupuesto.valor; datos.presupuestoAct = j.presupuesto.actualizado; }
+        for (const [k, a] of Object.entries(ajustes)) if (datos.extraAct[k] === a.actualizado) delete datos.extraPend[k];
+        for (const [k, a] of Object.entries(j.ajustes || {})) {
+          if (datos.extraPend[k]) continue; // cambiado aquí y aún sin subir
+          // Las insignias se suman (nunca se pierde una ganada en otro móvil)
+          datos.extra[k] = k === "insignias" ? { ...(a.valor || {}), ...(datos.extra.insignias || {}) } : a.valor; datos.extraAct[k] = a.actualizado;
+        }
+        alSincronizar.forEach((f) => { try { f(); } catch {} });
+        datos.movs = datos.movs.filter((m) => !m.borrado || m.pend); // un borrado ya confirmado no hace falta guardarlo
+        sync.desde = j.servido; sync.ultima = Date.now(); estadoSync = "ok";
+        guardar(); guardarSync(); pintar();
+      } catch { estadoSync = "sin-conexion"; }
+      finally { if (hojaAbierta?.id === "hoja-ajustes") pintarSync(); }
+    })();
+    await sincronizando; sincronizando = null;
+    if (otraVez) { otraVez = false; sincronizar(); }
+  }
+  const tocado = (m) => Object.assign(m, { actualizado: new Date().toISOString(), pend: true });
+  function setExtra(clave, valor) {
+    datos.extra[clave] = valor; datos.extraAct[clave] = new Date().toISOString(); datos.extraPend[clave] = true;
+    guardar(); sincronizar();
+  }
+
+  // Importes en céntimos para no arrastrar errores de decimales
+  const aCentimos = (t) => { const n = Number(String(t).replace(/\s/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")); return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : 0; };
+  const euros = (c, dec = true) => (c / 100).toLocaleString("es-ES", { minimumFractionDigits: dec ? 2 : 0, maximumFractionDigits: dec ? 2 : 0 }) + " €";
+  const conCentimos = (c) => c % 100 !== 0;
+  const hoyISO = () => new Date().toLocaleDateString("sv-SE");
+  const claveMes = (iso) => iso.slice(0, 7);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+  let mesVisto = claveMes(hoyISO()), filtroCat = null, busqueda = "";
+  const sinTildes = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+  // Categoría según lo que escribes o la tienda (las mismas reglas que Apple Pay y la voz en el servidor)
+  const REGLAS = [
+    ["subs", /spotify|netflix|disney|hbo|prime video|amazon prime|youtube|icloud|apple\.com|chatgpt|crunchyroll|dazn|twitch|patreon|suscripcion/],
+    ["comida", /uber ?eats|glovo|just ?eat|deliveroo|mcdonald|burger|kfc|telepizza|domino|pizza|starbucks|montaditos|goiko|kebab|sushi|\bbar\b|cafe|cafeter|restaur|cervez|taberna|bocadillo|bocata|churr|helad|panader|tapas|cena|comida|almuerzo|desayuno|menu|merienda|chuches|copas?\b/],
+    ["super", /mercadona|lidl|carrefour|\bdia\b|aldi|alcampo|eroski|consum|hipercor|supersol|coviran|ahorramas|spar|supercor|\bsuper\b|supermerc|\bcompra\b|fruter/],
+    ["transporte", /renfe|tussam|metro|\bemt\b|alsa|\bbus\b|autobus|taxi|cabify|\buber\b|bolt|blablacar|ryanair|vueling|iberia|repsol|cepsa|galp|shell|gasolin|parking|peaje|sevici|patinete|abono|billete|tren/],
+    ["ocio", /cine|cinesa|yelmo|steam|playstation|nintendo|xbox|ticketmaster|entradas?\b|fnac|bolera|karting|escape|museo|teatro|concierto|discoteca|\bpub\b|gimnas|\bgym\b|fiesta|padel|futbol|videojuego/],
+    ["ropa", /zara|pull ?(&|and) ?bear|bershka|stradivarius|lefties|h ?& ?m|primark|mango|springfield|nike|adidas|decathlon|jd sports|foot ?locker|shein|zalando|ropa|camiseta|pantalon|zapatillas|sudadera|chaqueta|zapatos/],
+    ["estudios", /casa del libro|papeler|copister|librer|udemy|coursera|libro|apuntes|fotocopias|cuaderno|matricula|academia|curso/],
+  ];
+  const adivinarCat = (texto) => { const t = sinTildes(texto); return (REGLAS.find(([, r]) => r.test(t)) || [null])[0]; };
+  const moverMes = (clave, n) => { const [a, m] = clave.split("-").map(Number); const d = new Date(a, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  const nombreMes = (clave, corto) => new Date(clave + "-15T12:00:00").toLocaleDateString("es-ES", corto ? { month: "short" } : { month: "long" }).replace(".", "");
+
+  // El periodo de las cuentas: el mes natural o, en modo paga, de paga a paga (ini entra, fin no). El servidor usa la misma cuenta.
+  function periodo() {
+    const hoy = hoyISO(), [a, m] = hoy.split("-").map(Number), diaPaga = Number(datos.extra.paga?.dia) || 0;
+    const enMes = (an, me) => new Date(Date.UTC(an, me, diaPaga > 1 ? Math.min(diaPaga, new Date(Date.UTC(an, me + 1, 0)).getUTCDate()) : 1)).toISOString().slice(0, 10); // el 31 en febrero es el 28
+    let ini = enMes(a, m - 1);
+    if (ini > hoy) ini = enMes(a, m - 2);
+    const [ia, im] = ini.split("-").map(Number), fin = enMes(ia, im);
+    const dias = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
+    return { ini, fin, paga: diaPaga > 1, diaPaga: Number(ini.slice(8)), diaHoy: dias(ini, hoy) + 1, quedanDias: dias(hoy, fin), largo: dias(ini, fin) };
+  }
+  const gastoPeriodo = (pe, cat) => vivos().filter((x) => x.tipo === "gasto" && x.fecha >= pe.ini && x.fecha < pe.fin && (!cat || x.cat === cat)).reduce((s, x) => s + x.importe, 0);
+  // Límites por categoría: avisa al llegar al 80 %, al pasarte y cada vez que sigues por encima (el servidor dice lo mismo en el aviso de Apple Pay)
+  function textoLimite(antes, ahora, limite, nombre) {
+    if (ahora > limite && antes <= limite) return `Te has pasado de tu límite de ${nombre}: ${euros(ahora)} de ${euros(limite)}`;
+    if (ahora >= limite && antes < limite) return `Has llegado a tu límite de ${nombre} (${euros(limite)})`;
+    if (antes > limite) return `Ya vas ${euros(ahora - limite)} por encima de tu límite de ${nombre}`;
+    if (ahora >= limite * 0.8 && antes < limite * 0.8) return `Ojo: llevas ${euros(ahora)} de ${euros(limite)} en ${nombre}`;
+    return "";
+  }
+  function avisoLimite(mv) {
+    const limite = (datos.extra.limites || {})[mv.cat], pe = periodo();
+    if (!limite || mv.tipo !== "gasto" || mv.fecha < pe.ini || mv.fecha >= pe.fin) return "";
+    const ahora = gastoPeriodo(pe, mv.cat);
+    return textoLimite(ahora - mv.importe, ahora, limite, catDe("gasto", mv.cat)[1]);
+  }
+
+  // ---------- Pintar ----------
+  // «Llevas 40 € menos que en septiembre a estas alturas»: el mismo número de días del mes (o de la paga) anterior.
+  // En un mes pasado se compara el mes entero. Si el anterior no tiene gastos, no se dice nada.
+  function compararConAntes(esActual, diaPaga, diaHoy, gastado) {
+    const sumar = (desde, hasta) => vivos().filter((x) => x.tipo === "gasto" && x.fecha >= desde && x.fecha < hasta).reduce((s, x) => s + x.importe, 0);
+    const iso = (d) => d.toLocaleDateString("sv-SE");
+    const [a, m] = mesVisto.split("-").map(Number);
+    let antes, nombre, desdeAntes, finAntes;
+    if (esActual && diaPaga > 1) {
+      const hoy = new Date(), enMes = (an, me) => new Date(an, me, Math.min(diaPaga, new Date(an, me + 1, 0).getDate()));
+      let ini = enMes(hoy.getFullYear(), hoy.getMonth());
+      if (ini > new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())) ini = enMes(hoy.getFullYear(), hoy.getMonth() - 1);
+      const ini0 = enMes(ini.getFullYear(), ini.getMonth() - 1);
+      desdeAntes = iso(ini0); finAntes = iso(new Date(Math.min(ini0.getTime() + diaHoy * 864e5, ini.getTime())));
+      antes = sumar(desdeAntes, finAntes); nombre = "que en tu paga anterior a estas alturas";
+      if (!sumar(desdeAntes, iso(ini))) return "";
+    } else {
+      const previo = moverMes(mesVisto, -1), diasPrevio = new Date(a, m - 1, 0).getDate();
+      const hasta = esActual ? Math.min(diaHoy, diasPrevio) : diasPrevio;
+      desdeAntes = previo + "-01"; finAntes = iso(new Date(a, m - 2, hasta + 1));
+      if (!sumar(desdeAntes, mesVisto + "-01")) return "";
+      antes = sumar(desdeAntes, finAntes); nombre = `que en ${nombreMes(previo)}${esActual ? " a estas alturas" : ""}`;
+    }
+    const dif = gastado - antes;
+    if (Math.abs(dif) < 100) return `<div class="comparar">${ico("equals", "ico-texto")}Igual ${nombre}</div>`;
+    const pct = antes ? Math.round((Math.abs(dif) / antes) * 100) : 0;
+    return `<div class="comparar ${dif < 0 ? "mejor" : "peor"}">${ico(dif < 0 ? "trend-down" : "trend-up", "ico-texto")}<b class="num">${euros(Math.abs(dif))} ${dif < 0 ? "menos" : "más"}</b> ${nombre}${pct && pct < 1000 ? ` (${dif < 0 ? "−" : "+"}${pct} %)` : ""}</div>`;
+  }
+
+  function pintar() {
+    const actual = claveMes(hoyISO()), esActual = mesVisto === actual;
+    const anio = mesVisto.slice(0, 4);
+    $("#mes").textContent = nombreMes(mesVisto) + (anio !== actual.slice(0, 4) ? ` ${anio}` : "");
+    $("#mes-despues").disabled = mesVisto >= actual;
+
+    const movs = vivos().filter((m) => claveMes(m.fecha) === mesVisto);
+    const gastos = movs.filter((m) => m.tipo === "gasto"), ingresos = movs.filter((m) => m.tipo === "ingreso");
+    const gastado = gastos.reduce((s, m) => s + m.importe, 0), ingresado = ingresos.reduce((s, m) => s + m.importe, 0);
+    const p = datos.presupuesto;
+
+    // Resumen: del mes o, si cobras la paga otro día (modo paga), de paga a paga
+    const [a, m] = mesVisto.split("-").map(Number), diasMes = new Date(a, m, 0).getDate();
+    const diaPaga = Number(datos.extra.paga?.dia) || 0;
+    let gastadoR = gastado, ingresadoR = ingresado, diaHoy = esActual ? new Date().getDate() : diasMes, quedanDias = esActual ? diasMes - diaHoy + 1 : 0;
+    let etiqueta = esActual ? "Gastado este mes" : "Gastado en " + nombreMes(mesVisto), hasta = "para fin de mes";
+    if (esActual && diaPaga > 1) {
+      const pe = periodo(), delPeriodo = vivos().filter((x) => x.fecha >= pe.ini && x.fecha < pe.fin);
+      gastadoR = delPeriodo.filter((x) => x.tipo === "gasto").reduce((s, x) => s + x.importe, 0);
+      ingresadoR = delPeriodo.filter((x) => x.tipo === "ingreso").reduce((s, x) => s + x.importe, 0);
+      diaHoy = pe.diaHoy; quedanDias = pe.quedanDias;
+      etiqueta = `Gastado desde tu paga del ${pe.diaPaga}`; hasta = "hasta tu paga";
+    }
+    let barra = "", lineas = "";
+    if (p) {
+      const pct = Math.min(100, (gastadoR / p) * 100), queda = p - gastadoR;
+      const color = pct >= 100 ? "var(--rojo)" : pct >= 85 ? "#ff9f0a" : "var(--acento)";
+      barra = `<div class="barra" role="img" aria-label="${Math.round(pct)} % del presupuesto"><i style="width:${pct}%;background:${color}"></i></div>`;
+      lineas = `<div class="linea-resumen"><span>${queda >= 0 ? `Te quedan <b class="num">${euros(queda)}</b>` : `<b class="num pasado">Te has pasado ${euros(-queda)}</b>`}</span><span class="num">de ${euros(p, conCentimos(p))}</span></div>`;
+      // Una sola frase que se adapta al ancho (dos columnas se partían en cuatro trozos en un móvil)
+      if (esActual && queda > 0) lineas += `<p class="linea-resumen" style="margin:6px 0 0;display:block">Puedes gastar <b class="num">${euros(Math.floor(queda / quedanDias))}</b> al día ${hasta === "hasta tu paga" ? `hasta tu paga (${quedanDias} día${quedanDias === 1 ? "" : "s"})` : `durante ${quedanDias === 1 ? "hoy, último día del mes" : `${quedanDias} días`}`}</p>`;
+    } else if (esActual && diaPaga > 1) lineas = `<div class="linea-resumen" style="margin-top:10px"><span>${quedanDias} día${quedanDias === 1 ? "" : "s"} ${hasta}</span></div>`;
+    const media = diaHoy ? Math.round(gastadoR / diaHoy) : 0;
+    const comparacion = compararConAntes(esActual, diaPaga, diaHoy, gastadoR);
+    const [ent, dec] = euros(gastadoR).replace(" €", "").split(",");
+    $("#resumen").innerHTML = `<div class="etiqueta">${etiqueta}</div>
+      <div class="total num">${ent}<small>,${dec} €</small></div>${comparacion}${barra}${lineas}
+      <div class="chips-resumen"><div class="mini"><span class="etiqueta">Media al día</span><b class="num">${euros(media)}</b></div>
+      <div class="mini"><span class="etiqueta">Ingresos</span><b class="num ${ingresadoR ? "ingreso" : ""}">${ingresadoR ? "+" : ""}${euros(ingresadoR)}</b></div></div>
+      ${esActual ? `<button class="boton-permitir" id="permitir">${ico("tag", "ico-texto")}¿Me lo puedo permitir?</button>` : ""}`;
+
+    // Por categoría
+    const porCat = {};
+    gastos.forEach((g) => (porCat[g.cat] = (porCat[g.cat] || 0) + g.importe));
+    const filasCat = Object.entries(porCat).sort((x, y) => y[1] - x[1]);
+    const mayor = filasCat[0]?.[1] || 1;
+    if (filtroCat && !porCat[filtroCat]) filtroCat = null; // al cambiar de mes, si esa categoría no tiene gastos
+    // Con límite (solo en el periodo actual): la barra mide cuánto llevas de tu límite, y cambia de color al acercarte o pasarte
+    const limites = esActual ? datos.extra.limites || {} : {}, pe = periodo();
+    $("#categorias").innerHTML = filasCat.length ? `<h2>En qué se va</h2><div class="grupo">${filasCat.map(([id, total]) => {
+      const [, nombre, icono, color] = catDe("gasto", id), n = gastos.filter((g) => g.cat === id).length, limite = limites[id];
+      let sub = `${n} gasto${n === 1 ? "" : "s"} · ${Math.round((total / gastado) * 100)} %`, ancho = (total / mayor) * 100, colorBarra = color;
+      if (limite) {
+        const usado = gastoPeriodo(pe, id), r = usado / limite;
+        sub = usado > limite ? `<span class="limite-pasado">${euros(usado - limite)} por encima de tu límite</span>`
+          : `<span class="${r >= 0.8 ? "limite-cerca" : ""}">${euros(usado, conCentimos(usado))} de ${euros(limite, conCentimos(limite))}</span> · te quedan ${euros(limite - usado)}`;
+        ancho = Math.min(100, r * 100); colorBarra = r > 1 ? "var(--rojo)" : r >= 0.8 ? "#ff9f0a" : color;
+      }
+      return `<button class="fila ${filtroCat === id ? "elegida" : ""}" data-filtro-cat="${id}" aria-pressed="${filtroCat === id}"><div class="icono" style="--c:${color}">${ico(icono)}</div><div class="medio"><div style="display:flex;justify-content:space-between;gap:8px"><span class="titulo">${nombre}</span><span class="cifra num">${euros(total)}</span></div>
+        <div class="sub">${sub}</div><div class="cat-barra"><i style="width:${ancho}%;background:${colorBarra}"></i></div></div></button>`;
+    }).join("")}</div><p class="nota-ajuste">Toca una categoría para ver solo sus gastos.${esActual && !Object.keys(limites).length ? ` <button class="enlace" id="poner-limites">Ponle un límite a alguna</button>` : ""}</p>` : "";
+
+    // Últimos 6 meses
+    const claves = Array.from({ length: 6 }, (_, i) => moverMes(actual, i - 5));
+    const totales = claves.map((k) => vivos().filter((x) => x.tipo === "gasto" && claveMes(x.fecha) === k).reduce((s, x) => s + x.importe, 0));
+    const tope = Math.max(...totales, 1);
+    $("#historico").innerHTML = vivos().length ? `<h2>Últimos meses</h2><div class="grupo"><div class="meses">${claves.map((k, i) =>
+      `<button class="${k === mesVisto ? "actual" : ""}" data-mes="${k}" aria-label="${nombreMes(k)}: ${euros(totales[i])}"><span class="num" style="font-size:11px">${totales[i] ? Math.round(totales[i] / 100) + " €" : ""}</span><i style="height:${Math.max(4, (totales[i] / tope) * 70)}px"></i>${nombreMes(k, true)}</button>`).join("")}</div></div>` : "";
+
+    // Movimientos por día: los del mes, los de una categoría o, si buscas, los de todos los meses
+    $("#buscador").hidden = !vivos().length;
+    const q = sinTildes(busqueda.trim());
+    let lista = movs, cabecera = `<h2>Movimientos</h2>`;
+    if (q) {
+      lista = vivos().filter((x) => sinTildes(`${x.nota} ${catDe(x.tipo, x.cat)[1]}`).includes(q));
+      const t = lista.filter((x) => x.tipo === "gasto").reduce((s, x) => s + x.importe, 0);
+      cabecera = `<p class="resultado-busqueda">${lista.length} resultado${lista.length === 1 ? "" : "s"} en todos los meses${t ? ` · <b class="num">${euros(t)}</b> gastados` : ""}</p>`;
+    } else if (filtroCat) {
+      lista = movs.filter((x) => x.tipo === "gasto" && x.cat === filtroCat);
+      const [, nombre, icono] = catDe("gasto", filtroCat);
+      cabecera = `<h2>Movimientos</h2><button class="filtro-activo" data-quitar-filtro>${ico(icono, "ico-texto")}${nombre} <span aria-hidden="true">✕</span><span class="oculto">Quitar filtro</span></button>`;
+    }
+    const porDia = {};
+    lista.slice().sort((x, y) => (y.fecha + y.creado).localeCompare(x.fecha + x.creado)).forEach((mv) => (porDia[mv.fecha] ||= []).push(mv));
+    const dias = Object.keys(porDia);
+    $("#lista").innerHTML = dias.length ? cabecera + dias.map((d) => {
+      const totalDia = porDia[d].filter((x) => x.tipo === "gasto").reduce((s, x) => s + x.importe, 0);
+      const etiqueta = d === hoyISO() ? "Hoy" : d === new Date(Date.now() - 864e5).toLocaleDateString("sv-SE") ? "Ayer" : new Date(d + "T12:00:00").toLocaleDateString("es-ES", q && d.slice(0, 7) !== mesVisto ? { weekday: "short", day: "numeric", month: "short", year: "numeric" } : { weekday: "long", day: "numeric" });
+      return `<div class="dia"><span>${etiqueta}</span><span class="num">${totalDia ? euros(totalDia) : ""}</span></div><div class="grupo">${porDia[d].map((mv) => {
+        const [, nombre, icono, color] = catDe(mv.tipo, mv.cat);
+        const sub = [mv.nota && esc(nombre), mv.origen === "applepay" && `${ico("apple-logo", "ico-texto")}Pay`, mv.origen === "wallet" && `${ico("contactless-payment", "ico-texto")}Wallet`, mv.origen === "voz" && `${ico("microphone", "ico-texto")}Voz`, mv.origen === "fijo" && `${ico("calendar-check", "ico-texto")}Fijo`].filter(Boolean).join(" · ");
+        return `<div class="desliza"><button class="fila" data-editar="${mv.id}"><div class="icono" style="--c:${color}">${ico(icono)}</div><div class="medio"><div class="titulo">${esc(mv.nota || nombre)}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>
+          <div class="cifra num ${mv.tipo === "ingreso" ? "ingreso" : ""}">${mv.tipo === "ingreso" ? "+" : "−"}${euros(mv.importe)}</div></button></div>`;
+      }).join("")}</div>`;
+    }).join("") : q ? `${cabecera}<div class="vacio">Nada con «${esc(busqueda.trim())}».</div>` : `<div class="vacio"><b>${esActual ? "Aún no hay gastos este mes" : "Nada en " + nombreMes(mesVisto)}</b>${esActual ? "Pulsa el + cada vez que gastes algo. Tarda dos segundos." : ""}</div>`;
+    alPintar.forEach((f) => { try { f(); } catch (e) { console.error(e); } }); // extras: racha, retos, insignias, cobros fijos
+  }
+  const alPintar = [], alCambiarVista = [], alSincronizar = [];
+
+  // ---------- Hojas ----------
+  let hojaAbierta = null, foco = null;
+  function abrirHoja(h) {
+    foco = document.activeElement; hojaAbierta = h;
+    h.classList.add("abierta"); h.setAttribute("aria-hidden", "false"); $("#velo").classList.add("abierto");
+  }
+  function cerrarHoja() {
+    if (!hojaAbierta) return;
+    if (hojaAbierta.id === "hoja-dialogo" && resolverDialogo) { const r = resolverDialogo; resolverDialogo = null; return r(null); } // cerrar un diálogo = cancelar
+    document.activeElement?.blur();
+    hojaAbierta.classList.remove("abierta"); hojaAbierta.setAttribute("aria-hidden", "true"); $("#velo").classList.remove("abierto");
+    hojaAbierta = null; foco?.focus?.({ preventScroll: true });
+  }
+  $("#velo").addEventListener("click", cerrarHoja);
+  document.querySelectorAll("[data-cerrar]").forEach((b) => b.addEventListener("click", cerrarHoja));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarHoja(); });
+  // Deslizar hacia abajo para cerrar
+  document.querySelectorAll(".hoja").forEach((h) => {
+    let y0 = null;
+    h.addEventListener("touchstart", (e) => { y0 = h.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+    h.addEventListener("touchmove", (e) => { if (y0 === null) return; const dy = e.touches[0].clientY - y0; if (dy > 0) h.style.transform = `translateY(${dy}px)`; }, { passive: true });
+    h.addEventListener("touchend", (e) => { if (y0 === null) return; const dy = e.changedTouches[0].clientY - y0; h.style.transform = ""; y0 = null; if (dy > 110) cerrarHoja(); });
+  });
+
+  // ---------- Añadir / editar ----------
+  let tipo = "gasto", cat = "comida", editando = null, catElegida = false; // catElegida: la tocó a mano, ya no se adivina
+  const importe = $("#importe"), nota = $("#nota"), fecha = $("#fecha"), guardarBtn = $("#guardar-mov");
+  function pintarCats() {
+    $("#cats").innerHTML = CATS[tipo].map(([id, nombre, icono, color]) => `<button data-cat="${id}" aria-pressed="${id === cat}"><span class="icono" style="--c:${color}">${ico(icono)}</span>${nombre}</button>`).join("");
+  }
+  function ponerTipo(t) {
+    tipo = t;
+    document.querySelectorAll("[data-tipo]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tipo === t)));
+    if (!CATS[t].some((c) => c[0] === cat)) cat = CATS[t][0][0];
+    $("#titulo-mov").textContent = editando ? "Editar" : t === "gasto" ? "Nuevo gasto" : "Nuevo ingreso";
+    $("#hoja-mov").classList.toggle("es-gasto", t === "gasto"); $("#hoja-mov").classList.toggle("es-ingreso", t === "ingreso");
+    $("#signo").textContent = t === "gasto" ? "−" : "+";
+    pintarCats(); pintarRapidos();
+  }
+  function abrirMov(mv) {
+    editando = mv || null;
+    cat = mv ? mv.cat : "comida";
+    ponerTipo(mv ? mv.tipo : "gasto");
+    importe.value = mv ? (mv.importe / 100).toLocaleString("es-ES", { maximumFractionDigits: 2, useGrouping: false }) : "";
+    nota.value = mv?.nota || "";
+    fecha.value = mv?.fecha || (mesVisto === claveMes(hoyISO()) ? hoyISO() : `${mesVisto}-01`);
+    $("#borrar-mov").hidden = !mv;
+    catElegida = Boolean(mv);
+    $("#fila-oculto").hidden = !sync.clave; // solo tiene sentido con nube (los círculos están en ella)
+    $("#mov-oculto").checked = Boolean(mv && (datos.extra.ocultos || []).includes(mv.id));
+    pintarRapidos();
+    validar();
+    abrirHoja($("#hoja-mov"));
+    if (!mv) setTimeout(() => importe.focus(), 60); // en iPhone el teclado solo sale si el foco llega pronto tras el toque
+  }
+  // El campo crece con el número para que el € vaya pegado (las comas ocupan menos que las cifras)
+  const lienzo = document.createElement("canvas").getContext("2d");
+  const ajustarAncho = (campo = importe) => {
+    const estilo = getComputedStyle(campo);
+    lienzo.font = `${estilo.fontWeight} ${estilo.fontSize} ${estilo.fontFamily}`;
+    campo.style.width = `${Math.ceil(lienzo.measureText(campo.value || campo.placeholder || "0").width) + 4}px`; // el ancho exacto del número: signo y € van pegados
+  };
+  $("#bv-presupuesto").addEventListener("input", (e) => ajustarAncho(e.target));
+  const validar = () => { ajustarAncho(); guardarBtn.disabled = !aCentimos(importe.value) || !fecha.value; };
+  importe.addEventListener("input", () => { importe.value = importe.value.replace(/[^\d.,]/g, "").replace(/([.,])(?=.*[.,])/g, "").replace(/([.,]\d{2})\d+$/, "$1"); validar(); pintarRapidos(); });
+  // Al escribir la nota, la categoría se elige sola («bus» → Transporte) mientras no toques ninguna a mano
+  nota.addEventListener("input", () => {
+    if (catElegida || tipo !== "gasto") return;
+    const c = adivinarCat(nota.value);
+    if (c && c !== cat) { cat = c; pintarCats(); }
+  });
+
+  // Gastos habituales (lo que más repites en los últimos 3 meses): un toque y apuntado
+  function habituales() {
+    const desde = new Date(Date.now() - 90 * 864e5).toLocaleDateString("sv-SE"), cuenta = new Map();
+    for (const m of vivos()) {
+      if (m.tipo !== "gasto" || !m.nota || m.fecha < desde) continue;
+      const k = `${sinTildes(m.nota)}|${m.importe}|${m.cat}`, x = cuenta.get(k) || { n: 0, m };
+      x.n++; if ((m.fecha + m.creado) > (x.m.fecha + x.m.creado)) x.m = m;
+      cuenta.set(k, x);
+    }
+    return [...cuenta.values()].filter((x) => x.n >= 2).sort((a, b) => b.n - a.n || (b.m.fecha + b.m.creado).localeCompare(a.m.fecha + a.m.creado)).slice(0, 6).map((x) => x.m);
+  }
+  function pintarRapidos() {
+    const caja = $("#rapidos");
+    caja.innerHTML = editando || importe.value || tipo !== "gasto" ? "" : habituales().map((m) => `<button data-rapido="${m.id}"><span class="icono chico" style="--c:${catDe("gasto", m.cat)[3]}">${ico(catDe("gasto", m.cat)[2])}</span>${esc(m.nota)}<b class="num">${euros(m.importe)}</b></button>`).join("");
+  }
+  $("#rapidos").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-rapido]"); if (!b) return;
+    const base = datos.movs.find((x) => x.id === b.dataset.rapido); if (!base) return;
+    const mv = tocado({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo: "gasto", cat: base.cat, importe: base.importe, nota: base.nota, fecha: hoyISO(), creado: new Date().toISOString(), origen: "app" });
+    datos.movs.push(mv); guardar(); sincronizar();
+    mesVisto = claveMes(mv.fecha); cerrarHoja(); pintar();
+    if (navigator.vibrate) navigator.vibrate(10);
+    avisar(avisoLimite(mv) || `−${euros(mv.importe)} · ${mv.nota}`, { texto: "Deshacer", fn: () => borrarMov(mv.id, true) });
+  });
+  fecha.addEventListener("change", validar);
+  nota.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); if (!guardarBtn.disabled) guardarBtn.click(); } });
+  document.querySelectorAll("[data-tipo]").forEach((b) => b.addEventListener("click", () => ponerTipo(b.dataset.tipo)));
+  $("#cats").addEventListener("click", (e) => { const b = e.target.closest("[data-cat]"); if (!b) return; cat = b.dataset.cat; catElegida = true; pintarCats(); });
+
+  guardarBtn.addEventListener("click", () => {
+    const c = aCentimos(importe.value);
+    if (!c || !fecha.value) return;
+    const mv = tocado({ id: editando?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo, cat, importe: c, nota: nota.value.trim().slice(0, 60), fecha: fecha.value,
+      creado: editando?.creado || new Date().toISOString(), origen: editando?.origen || "app" });
+    if (editando) datos.movs = datos.movs.map((x) => (x.id === mv.id ? mv : x)); else datos.movs.push(mv);
+    // Oculto en los círculos: lista de ids que se sincroniza como ajuste (el servidor la respeta al enseñar el muro)
+    const ocultos = datos.extra.ocultos || [], oculto = sync.clave && $("#mov-oculto").checked;
+    if (oculto !== ocultos.includes(mv.id)) setExtra("ocultos", oculto ? [...ocultos, mv.id].slice(-500) : ocultos.filter((x) => x !== mv.id));
+    guardar(); sincronizar();
+    mesVisto = claveMes(mv.fecha);
+    cerrarHoja(); pintar();
+    avisar(editando ? "Cambios guardados" : avisoLimite(mv) || `${tipo === "gasto" ? "−" : "+"}${euros(c)} · ${catDe(tipo, cat)[1]}`);
+    if (navigator.vibrate) navigator.vibrate(10);
+  });
+  // Borrar sin preguntar, con «Deshacer» (más rápido y da menos miedo que un «¿Seguro?»)
+  function borrarMov(id, sinAviso) {
+    const mv = datos.movs.find((x) => x.id === id);
+    if (!mv) return;
+    tocado(mv).borrado = true;
+    guardar(); pintar(); sincronizar();
+    if (sinAviso) return avisar("Deshecho");
+    avisar(`Borrado: ${mv.nota || catDe(mv.tipo, mv.cat)[1]}`, { texto: "Deshacer", fn: () => {
+      if (!datos.movs.includes(mv)) datos.movs.push(mv); // si ya se confirmó el borrado en la nube, vuelve a la lista
+      tocado(mv).borrado = false; guardar(); pintar(); sincronizar();
+    } });
+  }
+  $("#borrar-mov").addEventListener("click", () => { if (!editando) return; const id = editando.id; cerrarHoja(); borrarMov(id); });
+
+  $("#abrir-anadir").addEventListener("click", () => abrirMov());
+  let recienDeslizado = false;
+  $("#lista").addEventListener("click", (e) => {
+    if (recienDeslizado) return;
+    if (e.target.closest("[data-quitar-filtro]")) { filtroCat = null; return pintar(); }
+    const b = e.target.closest("[data-editar]"); if (b) abrirMov(datos.movs.find((x) => x.id === b.dataset.editar));
+  });
+  // Deslizar un movimiento a la izquierda para borrarlo (como en Mail)
+  let toque = null;
+  $("#lista").addEventListener("touchstart", (e) => {
+    const fila = e.target.closest(".desliza .fila"); if (!fila) return;
+    toque = { fila, x0: e.touches[0].clientX, y0: e.touches[0].clientY, dx: 0, horizontal: null };
+  }, { passive: true });
+  $("#lista").addEventListener("touchmove", (e) => {
+    if (!toque) return;
+    const dx = e.touches[0].clientX - toque.x0, dy = e.touches[0].clientY - toque.y0;
+    if (toque.horizontal === null && Math.abs(dx) + Math.abs(dy) > 8) toque.horizontal = Math.abs(dx) > Math.abs(dy);
+    if (!toque.horizontal) return;
+    toque.dx = Math.min(0, dx);
+    toque.fila.classList.add("moviendo"); toque.fila.style.transform = `translateX(${toque.dx}px)`;
+  }, { passive: true });
+  $("#lista").addEventListener("touchend", () => {
+    if (!toque) return;
+    const { fila, dx, horizontal } = toque; toque = null;
+    fila.classList.remove("moviendo");
+    if (!horizontal) return;
+    recienDeslizado = true; setTimeout(() => (recienDeslizado = false), 350);
+    if (dx < -90) { fila.style.transform = "translateX(-110%)"; if (navigator.vibrate) navigator.vibrate(10); setTimeout(() => borrarMov(fila.dataset.editar), 200); }
+    else fila.style.transform = "";
+  });
+  $("#categorias").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-filtro-cat]"); if (!b) return;
+    filtroCat = filtroCat === b.dataset.filtroCat ? null : b.dataset.filtroCat; pintar();
+    if (filtroCat) $("#lista").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  let tBusqueda;
+  $("#buscar").addEventListener("input", (e) => { clearTimeout(tBusqueda); tBusqueda = setTimeout(() => { busqueda = e.target.value; pintar(); }, 150); });
+  $("#historico").addEventListener("click", (e) => { const b = e.target.closest("[data-mes]"); if (b) { mesVisto = b.dataset.mes; pintar(); } });
+  $("#mes-antes").addEventListener("click", () => { mesVisto = moverMes(mesVisto, -1); pintar(); });
+  $("#mes-despues").addEventListener("click", () => { mesVisto = moverMes(mesVisto, 1); pintar(); });
+
+  // ---------- Ajustes ----------
+  const presupuesto = $("#presupuesto");
+  $("#abrir-ajustes").addEventListener("click", () => {
+    presupuesto.value = datos.presupuesto ? (datos.presupuesto / 100).toLocaleString("es-ES", { maximumFractionDigits: 2, useGrouping: false }) : "";
+    abrirHoja($("#hoja-ajustes"));
+  });
+  presupuesto.addEventListener("change", () => {
+    Object.assign(datos, { presupuesto: aCentimos(presupuesto.value) || null, presupuestoAct: new Date().toISOString(), presupuestoPend: true });
+    guardar(); pintar(); sincronizar(); avisar(datos.presupuesto ? `Presupuesto: ${euros(datos.presupuesto, conCentimos(datos.presupuesto))}` : "Sin presupuesto"); });
+
+  async function descargar(nombre, contenido, mime) {
+    const archivo = new File([contenido], nombre, { type: mime });
+    // En iPhone, la hoja de compartir deja guardarlo en Archivos, mandarlo por WhatsApp o al correo
+    if (navigator.canShare?.({ files: [archivo] })) { try { await navigator.share({ files: [archivo] }); return; } catch (e) { if (e.name === "AbortError") return; } }
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(archivo), download: nombre });
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  $("#exportar-csv").addEventListener("click", () => {
+    if (!vivos().length) return avisar("Aún no hay movimientos");
+    const celda = (s) => `"${String(s).replace(/"/g, '""')}"`;
+    const filas = vivos().sort((x, y) => x.fecha.localeCompare(y.fecha)).map((m) =>
+      [m.fecha, m.tipo === "gasto" ? "Gasto" : "Ingreso", catDe(m.tipo, m.cat)[1], celda(m.nota || ""), ((m.tipo === "gasto" ? -1 : 1) * m.importe / 100).toFixed(2).replace(".", ",")].join(";"));
+    descargar(`bolsillo-${hoyISO()}.csv`, "﻿" + ["Fecha;Tipo;Categoría;Nota;Importe (€)", ...filas].join("\r\n"), "text/csv");
+  });
+  $("#exportar-copia").addEventListener("click", () => descargar(`bolsillo-copia-${hoyISO()}.json`, JSON.stringify({ version: 1, presupuesto: datos.presupuesto, movs: vivos().map(({ pend, ...m }) => m) }), "application/json"));
+  $("#importar-copia").addEventListener("click", () => $("#archivo-copia").click());
+  $("#archivo-copia").addEventListener("change", async (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    try {
+      const g = JSON.parse(await f.text());
+      if (!g || !Array.isArray(g.movs)) throw new Error();
+      const validos = g.movs.filter((m) => m && m.id && /^\d{4}-\d{2}-\d{2}$/.test(m.fecha) && Number.isInteger(m.importe) && CATS[m.tipo] && !m.borrado);
+      if (!(await dialogo({ titulo: "Restaurar copia", texto: `La copia tiene ${validos.length} movimientos y sustituirá a los que tienes ahora.`, boton: "Restaurar", peligro: true }))) return;
+      // Lo que no está en la copia se borra también en la nube
+      const enCopia = new Set(validos.map((m) => m.id));
+      const quitados = vivos().filter((m) => !enCopia.has(m.id)).map((m) => tocado({ ...m, borrado: true }));
+      datos = { ...vacio(), presupuesto: Number.isInteger(g.presupuesto) ? g.presupuesto : null, presupuestoAct: new Date().toISOString(), presupuestoPend: true, movs: [...validos.map(tocado), ...quitados] };
+      guardar(); cerrarHoja(); pintar(); avisar("Copia restaurada"); sincronizar();
+    } catch { avisar("Ese archivo no es una copia de Bolsillo"); }
+  });
+  $("#borrar-todo").addEventListener("click", async () => {
+    if (!(await dialogo({ titulo: "¿Borrar todos tus movimientos?", texto: `Se borran ${vivos().length} movimientos${sync.clave ? ", también de tu nube" : ""}. No se puede deshacer.`, boton: "Borrar todo", peligro: true }))) return;
+    datos = { ...vacio(), movs: vivos().map((m) => tocado({ ...m, borrado: true })), presupuestoAct: new Date().toISOString(), presupuestoPend: true };
+    if (!sync.clave) datos.movs = [];
+    guardar(); cerrarHoja(); pintar(); avisar("Datos borrados"); sincronizar();
+  });
+
+  // ---------- Nube y Apple Pay (en Ajustes) ----------
+  const haceRato = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? "ahora mismo" : s < 3600 ? `hace ${Math.round(s / 60)} min` : s < 86400 ? `hace ${Math.round(s / 3600)} h` : `hace ${Math.round(s / 86400)} días`; };
+  function pintarSync() {
+    const campos = $("#sync-campos");
+    if (!sync.clave) {
+      // El campo de la clave es de tipo contraseña: si la guardaste en el llavero de iCloud, el iPhone la ofrece solo (🔑 encima del teclado)
+      campos.innerHTML = `<div class="campo"><button class="boton-fila" id="crear-nube">Crear mi nube gratis</button></div>
+        <form id="form-conectar" class="campo"><input type="text" name="username" autocomplete="username" value="Bolsillo" class="oculto" tabindex="-1" aria-hidden="true">
+          <label for="clave-sync">Ya tengo clave</label><input id="clave-sync" name="password" type="password" placeholder="Pégala aquí" autocomplete="current-password" autocapitalize="off" spellcheck="false"></form>
+        <div class="campo" id="fila-conectar" hidden><button class="boton-fila" id="conectar">Conectar</button></div>`;
+      $("#sync-nota").textContent = "Con tu nube, los pagos con Apple Pay se apuntan solos y no pierdes nada si cambias de móvil. No hace falta email ni contraseña: te damos una clave y la guardas en el llavero de iCloud.";
+      $("#crear-nube").addEventListener("click", crearNube);
+      $("#conectar").addEventListener("click", () => conectar($("#clave-sync").value));
+      $("#form-conectar").addEventListener("submit", (e) => { e.preventDefault(); conectar($("#clave-sync").value); });
+      $("#clave-sync").addEventListener("input", (e) => ($("#fila-conectar").hidden = !e.target.value.trim()));
+    } else {
+      const pendientes = datos.movs.filter((m) => m.pend).length + (datos.presupuestoPend ? 1 : 0);
+      const [texto, clase] = estadoSync === "ok" && !pendientes ? [`✓ Al día · ${haceRato(sync.ultima)}`, "ok"] : estadoSync === "clave" ? ["La clave ya no vale", "mal"]
+        : estadoSync === "sin-conexion" ? [`Sin conexión${pendientes ? ` · ${pendientes} por subir` : ""}`, "mal"] : ["Sincronizando…", ""];
+      campos.innerHTML = `<div class="campo"><span>Nube</span><span class="estado-sync ${clase}">${texto}</span></div>
+        <div class="campo"><button class="boton-fila" id="abrir-applepay">${ANDROID ? "Apuntar solo al pagar (Wallet)" : "Configurar Apple Pay"}</button></div>
+        <div class="campo"><span>Avisos en el móvil</span><span class="estado-sync" id="estado-avisos">…</span></div>
+        <div class="campo" id="fila-avisos"><button class="boton-fila" id="boton-avisos">Activar avisos</button></div>
+        ${llaveroGuardado() ? `<div class="campo"><span>Llavero de iCloud</span><span class="estado-sync ok">✓ Guardada</span></div>` : ""}
+        <div class="campo"><button class="boton-fila" id="ver-clave">Ver mi clave</button></div>
+        <div id="fila-clave" hidden>${formLlavero()}</div>`;
+      $("#sync-nota").textContent = llaveroGuardado() ? "Tus movimientos se guardan en este móvil y en tu nube privada. Tu clave está en el llavero de iCloud: en otro móvil, te la ofrecerá solo. No se la des a nadie."
+        : "Tus movimientos se guardan en este móvil y en tu nube privada. Guarda tu clave en el llavero de iCloud: es lo único que necesitas para recuperar tus datos en otro móvil. No se la des a nadie.";
+      $("#abrir-applepay").addEventListener("click", () => { cerrarHoja(); setTimeout(() => abrirHoja($("#hoja-applepay")), 250); });
+      $("#ver-clave").addEventListener("click", (e) => { const f = $("#fila-clave"); f.hidden = !f.hidden; e.target.textContent = f.hidden ? "Ver mi clave" : "Ocultar mi clave"; });
+      engancharLlavero($("#fila-clave"));
+      pintarAvisos();
+    }
+    // Desconectar y borrar la nube van abajo, con el resto de cosas peligrosas
+    $("#fila-desconectar").hidden = $("#fila-borrar-nube").hidden = !sync.clave;
+    $("#nota-datos").textContent = sync.clave ? "La copia de seguridad es un extra: tus datos ya están en la nube." : "Ahora tus datos están solo en este iPhone. Haz una copia de vez en cuando (se guarda en Archivos).";
+  }
+  // El iPhone solo ofrece guardar una contraseña cuando cree que inicias sesión: un formulario con usuario y contraseña
+  // (editables, no de solo lectura) que se envía y cambia de página. /api/llavero solo devuelve a la app (?llavero=1).
+  // Usuario «Bolsillo» y la clave como contraseña: en otro móvil, el campo «Ya tengo clave» la ofrece solo.
+  // Se recuerda para qué clave se guardó: si se crea otra nube, se vuelve a ofrecer
+  const llaveroGuardado = () => {
+    try {
+      const v = localStorage.getItem("bolsillo.llavero");
+      if (v === "si" && sync.clave) { localStorage.setItem("bolsillo.llavero", sync.clave); return true; } // la versión anterior solo apuntaba «si»
+      return Boolean(sync.clave) && v === sync.clave;
+    } catch { return false; }
+  };
+  const formLlavero = (forzar) => !forzar && llaveroGuardado() ? `<div class="llavero">
+      <div class="copiar" style="margin:10px 12px"><code data-clave>${esc(sync.clave)}</code><button type="button" data-copiar-clave>Copiar</button></div>
+      <p class="nota-ajuste" style="margin:0 16px 12px">✓ Ya está en tu llavero de iCloud. <button type="button" class="enlace" style="font-size:13px" data-reguardar>Guardarla otra vez</button></p>
+    </div>` : `<form class="llavero" method="post" action="api/llavero" autocomplete="on">
+      <div class="campo"><label for="llavero-usuario">Usuario</label><input id="llavero-usuario" type="text" name="username" autocomplete="username" value="Bolsillo" autocapitalize="off" spellcheck="false"></div>
+      <div class="campo"><label for="llavero-clave">Clave</label><input id="llavero-clave" type="password" name="password" autocomplete="current-password" value="${esc(sync.clave)}"></div>
+      <div class="copiar" style="margin:10px 12px"><code data-clave>${esc(sync.clave)}</code><button type="button" data-copiar-clave>Copiar</button></div>
+      <div style="padding:0 12px 12px"><button type="submit" class="boton-azul" style="width:100%">${ico("key", "ico-texto")} Guardar en el llavero de iCloud</button>
+      <p class="nota-ajuste" style="margin:8px 4px 0">La app se recargará un momento y el iPhone te preguntará «¿Guardar contraseña?». Pulsa <b>Guardar</b>.</p>
+      <details class="llavero-mano"><summary>¿No te sale? Guárdala a mano</summary>
+        <ol><li>Pulsa <b>Copiar</b> aquí arriba.</li><li>Abre la app <b>Contraseñas</b> del iPhone (o Ajustes → Contraseñas) y pulsa <b>+</b>.</li>
+        <li>Sitio web: <b>bolsillo-app-9tz.pages.dev</b> · Usuario: <b>Bolsillo</b> · Contraseña: pega tu clave.</li></ol></details></div>
+    </form>`;
+  function engancharLlavero(caja) {
+    caja.querySelector("[data-reguardar]")?.addEventListener("click", () => { caja.innerHTML = formLlavero(true); engancharLlavero(caja); });
+    caja.querySelector("[data-copiar-clave]").addEventListener("click", async (e) => {
+      try { await navigator.clipboard.writeText(sync.clave); e.target.textContent = "Copiado ✓"; setTimeout(() => (e.target.textContent = "Copiar"), 1800); } catch { avisar("Mantén pulsada la clave para copiarla"); }
+    });
+    caja.querySelector("form")?.addEventListener("submit", (e) => {
+      const f = e.currentTarget;
+      f.username.value = "Bolsillo"; f.password.value = sync.clave; // por si se tocó algo: se guarda siempre la clave buena
+      try { localStorage.setItem("bolsillo.llavero", sync.clave); localStorage.setItem("bolsillo.bienvenida", "si"); } catch {} // al volver, sin repetir la bienvenida
+      // se deja enviar de verdad: el cambio de página es lo que hace que el iPhone pregunte
+    });
+  }
+  // Vuelta del llavero: se avisa y se limpia la dirección
+  if (new URLSearchParams(location.search).get("llavero")) {
+    history.replaceState(null, "", location.pathname);
+    setTimeout(() => avisar("Si el iPhone te lo ha preguntado, tu clave ya está en el llavero"), 600);
+  }
+
+  // ---------- Avisos en el móvil (notificaciones push) ----------
+  const deB64url = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+  async function pintarAvisos() {
+    const est = $("#estado-avisos"), fila = $("#fila-avisos");
+    if (!est) return;
+    const soporte = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    const ios = /iPhone|iPad/.test(navigator.userAgent), instalada = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+    if (!soporte || (ios && !instalada)) { est.textContent = ios && !instalada ? "Instálala en la pantalla de inicio" : "No disponible aquí"; fila.hidden = true; return; }
+    fila.hidden = false;
+    const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+    if (Notification.permission === "denied") {
+      est.textContent = "Bloqueados"; est.className = "estado-sync mal";
+      fila.innerHTML = `<button class="boton-fila" id="boton-avisos">Cómo activarlos</button>`;
+      $("#boton-avisos").onclick = () => avisar("Ajustes del iPhone → Notificaciones → Bolsillo → Permitir");
+      return;
+    }
+    est.textContent = sub ? "✓ Activados" : "Desactivados"; est.className = "estado-sync" + (sub ? " ok" : "");
+    fila.innerHTML = sub ? `<button class="boton-fila" id="probar-aviso" style="flex:1">Probar un aviso</button><button class="enlace peligro" id="quitar-avisos">Desactivar</button>`
+      : `<button class="boton-fila" id="boton-avisos">Activar avisos</button>`;
+    if (sub) { $("#probar-aviso").onclick = probarAviso; $("#quitar-avisos").onclick = desactivarAvisos; }
+    else $("#boton-avisos").onclick = activarAvisos;
+  }
+  async function activarAvisos() {
+    const permiso = await Notification.requestPermission(); // tiene que ir lo primero, en el mismo toque
+    if (permiso !== "granted") { avisar("Sin permiso no te puedo avisar"); return pintarAvisos(); }
+    try {
+      const { clave } = await (await fetch("api/push/clave", { cache: "no-store" })).json();
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: deB64url(clave) });
+      const r = await api("push/alta", { suscripcion: sub.toJSON() });
+      if (!r.ok) throw new Error();
+      avisar("Avisos activados");
+    } catch { avisar("No se han podido activar: prueba otra vez"); }
+    pintarAvisos();
+  }
+  async function probarAviso() {
+    try { const r = await api("push/prueba", {}); const j = await r.json(); avisar(r.ok ? "Enviado: te llegará en unos segundos" : j.error); }
+    catch { avisar("Sin conexión"); }
+  }
+  async function desactivarAvisos() {
+    try {
+      const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+      if (sub) { await api("push/baja", { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
+      avisar("Avisos desactivados");
+    } catch { avisar("No se han podido desactivar"); }
+    pintarAvisos();
+  }
+
+  // También la usan los grupos y la bienvenida (sin botón): al terminar, sync.clave ya está puesta
+  async function crearNube() {
+    const b = $("#crear-nube");
+    if (b) { b.disabled = true; b.textContent = "Creando…"; }
+    try {
+      const r = await fetch("api/registro", { method: "POST", cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Error");
+      await conectar(j.clave, true);
+      if (!hojaAbierta) setTimeout(() => avisar("Nube creada ✓ Guarda tu clave: Ajustes → Ver mi clave"), 2100);
+    } catch (e) { avisar(e.message === "Failed to fetch" ? "Sin conexión: prueba otra vez" : e.message); if (b) { b.disabled = false; b.textContent = "Crear mi nube gratis"; } }
+  }
+  async function conectar(texto, nueva) {
+    const clave = String(texto || "").replace(/^\s*bearer/i, "").replace(/[^A-Za-z0-9-]+/g, "");
+    if (clave.replace(/-/g, "").length < 20) return avisar("Pega la clave completa");
+    try {
+      const r = await api("estado", null, clave);
+      if (r.status === 401) return avisar("Esa clave no existe");
+      if (!r.ok) throw new Error();
+    } catch { return avisar("Sin conexión: prueba otra vez"); }
+    sync = { clave, desde: 0 };
+    datos.movs.forEach((m) => { if (!m.actualizado) m.actualizado = m.creado; m.pend = true; }); // lo que ya tenías sube a la nube
+    if (datos.presupuesto) Object.assign(datos, { presupuestoAct: datos.presupuestoAct || new Date().toISOString(), presupuestoPend: true });
+    guardar(); guardarSync(); estadoSync = "pendiente"; pintarSync(); avisar(nueva ? "Tu nube está lista ✓" : "Conectado ✓");
+    if (nueva) { $("#ver-clave").click(); $("#fila-clave").scrollIntoView({ behavior: "smooth", block: "center" }); } // que vea su clave para guardarla
+    sincronizar();
+  }
+  $("#desconectar").addEventListener("click", async () => {
+    if (!(await dialogo({ titulo: "¿Desconectar este móvil?", texto: "Tus datos se quedan aquí y en tu nube. Para volver a conectarlo necesitarás tu clave.", boton: "Desconectar", peligro: true }))) return;
+    sync = {}; guardarSync(); estadoSync = "apagado"; pintarSync();
+  });
+  $("#borrar-nube").addEventListener("click", async () => {
+    if (!(await dialogo({ titulo: "¿Borrar tu nube?", texto: "Se borran todos tus movimientos del servidor, sales de tus grupos y tu clave deja de funcionar (también los atajos). Lo que hay en este móvil se queda.", boton: "Borrar mi nube", peligro: true }))) return;
+    try {
+      const r = await api("borrar-nube", { confirmar: true });
+      if (!r.ok) throw new Error();
+    } catch { return avisar("No se ha podido borrar: prueba otra vez"); }
+    datos.movs = vivos().map(({ pend, ...m }) => m); // en el móvil se quedan, ya sin pendientes de subir
+    datos.presupuestoPend = false;
+    sync = {}; guardar(); guardarSync(); estadoSync = "apagado"; pintarSync(); avisar("Nube borrada");
+  });
+  $("#abrir-ajustes").addEventListener("click", pintarSync);
+  document.querySelectorAll("[data-volver-ajustes]").forEach((b) => b.addEventListener("click", () => { cerrarHoja(); setTimeout(() => $("#abrir-ajustes").click(), 250); }));
+  // Modo paga: día en que cobras
+  const diaPagaSel = $("#dia-paga");
+  diaPagaSel.insertAdjacentHTML("beforeend", Array.from({ length: 30 }, (_, i) => `<option value="${i + 2}">Día ${i + 2}</option>`).join(""));
+  $("#abrir-ajustes").addEventListener("click", () => (diaPagaSel.value = datos.extra.paga?.dia || ""));
+  diaPagaSel.addEventListener("change", () => {
+    setExtra("paga", diaPagaSel.value ? { dia: Number(diaPagaSel.value) } : null); pintar();
+    avisar(diaPagaSel.value ? `Modo paga: de día ${diaPagaSel.value} a día ${diaPagaSel.value}` : "Cuentas por mes natural");
+  });
+
+  // ---------- Pestañas ----------
+  function irVista(v) {
+    document.querySelectorAll(".vista").forEach((s) => (s.hidden = s.id !== "vista-" + v));
+    document.querySelectorAll("[data-vista]").forEach((b) => (b.dataset.vista === v ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
+    scrollTo(0, 0);
+    alCambiarVista.forEach((f) => { try { f(v); } catch (e) { console.error(e); } });
+  }
+  document.querySelectorAll("[data-vista]").forEach((b) => b.addEventListener("click", () => irVista(b.dataset.vista)));
+
+  // Gasto creado desde fuera del formulario (tu parte de un gasto de grupo)
+  function anadirMov({ tipo, cat, importe, nota, fecha, id, origen }) {
+    datos.movs.push(tocado({ id: id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo, cat, importe, nota: nota || "", fecha: fecha || hoyISO(), creado: new Date().toISOString(), origen: origen || "app" }));
+    guardar(); pintar(); sincronizar();
+  }
+
+  // ---------- Bienvenida (solo la primera vez, sin datos ni nube) ----------
+  const bv = $("#bienvenida");
+  let pasoBv = 1;
+  function irPaso(n) {
+    pasoBv = n;
+    bv.querySelectorAll(".paso").forEach((p) => (p.hidden = Number(p.dataset.paso) !== n));
+    bv.querySelectorAll(".puntos i").forEach((i, k) => i.classList.toggle("activo", k === n - 1));
+    if (n === 2) { ajustarAncho($("#bv-presupuesto")); setTimeout(() => $("#bv-presupuesto").focus(), 100); }
+  }
+  function terminarBienvenida() {
+    try { localStorage.setItem("bolsillo.bienvenida", "si"); } catch {}
+    bv.hidden = true; pintar();
+  }
+  $("#bv-paga").insertAdjacentHTML("beforeend", Array.from({ length: 30 }, (_, i) => `<option value="${i + 2}">el día ${i + 2}</option>`).join(""));
+  bv.addEventListener("click", (e) => {
+    if (e.target.closest("[data-siguiente]")) {
+      if (pasoBv === 2) {
+        const p = aCentimos($("#bv-presupuesto").value);
+        if (p) Object.assign(datos, { presupuesto: p, presupuestoAct: new Date().toISOString(), presupuestoPend: true });
+        if ($("#bv-paga").value) setExtra("paga", { dia: Number($("#bv-paga").value) }); else guardar();
+      }
+      irPaso(pasoBv + 1);
+    }
+    if (e.target.closest("[data-saltar]")) irPaso(3);
+    if (e.target.closest("[data-terminar]")) terminarBienvenida();
+  });
+  $("#bv-crear-nube").addEventListener("click", async (e) => {
+    if (sync.clave) return terminarBienvenida(); // ya creada: este botón pasa a ser «Listo»
+    e.target.disabled = true; e.target.textContent = "Creando…";
+    await crearNube();
+    e.target.disabled = false;
+    if (!sync.clave) { e.target.textContent = "Crear mi nube"; return; }
+    $("#bv-llavero").innerHTML = formLlavero(); engancharLlavero($("#bv-llavero"));
+    e.target.textContent = "Listo, ¡a apuntar!"; $("#bv-tengo-clave").hidden = true; bv.querySelector("[data-terminar]").hidden = true;
+  });
+  $("#bv-tengo-clave").addEventListener("click", () => { terminarBienvenida(); $("#abrir-ajustes").click(); setTimeout(() => $("#clave-sync")?.focus(), 400); });
+  let vistaBv = false; try { vistaBv = localStorage.getItem("bolsillo.bienvenida") === "si"; } catch {}
+  if (!vistaBv && !vivos().length && !sync.clave) { bv.hidden = false; irPaso(1); }
+
+  // API para extras.js
+  window.B = {
+    get datos() { return datos; }, get sync() { return sync; }, get mesVisto() { return mesVisto; },
+    CATS, vivos, euros, esc, catDe, avisar, periodo, gastoPeriodo, adivinarCat, conCentimos, dialogo, abrirHoja, cerrarHoja, pintar, hoyISO, nombreMes, api, aCentimos, setExtra, crearNube, irVista, anadirMov,
+    ponerPresupuesto: (c) => { Object.assign(datos, { presupuesto: c, presupuestoAct: new Date().toISOString(), presupuestoPend: true }); guardar(); pintar(); sincronizar(); },
+    alPintar, alCambiarVista, alSincronizar,
+  };
+  // La hoja de Apple Pay con la dirección y la cabecera listas para copiar.
+  // Con el enlace de iCloud del atajo, se monta en 3 pasos y lo manual queda plegado.
+  const ATAJO_APPLE_PAY = "";
+  // iPhone (Apple Pay + Atajos) o Android (Google Wallet + MacroDroid): se abre la del móvil que usas
+  let soPago = ANDROID ? "android" : "iphone";
+  const elegirSo = (so) => {
+    soPago = so;
+    document.querySelectorAll("[data-so]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.so === so)));
+    $("#pago-iphone").hidden = so !== "iphone"; $("#pago-android").hidden = so !== "android";
+    $("#resultado-prueba").textContent = so === "android" ? "Este botón no apunta nada: solo comprueba que Bolsillo conecta con tu nube y entiende una notificación de pago. Para probarlo de verdad, paga algo pequeño con el móvil y abre Bolsillo."
+      : "Este botón no apunta nada ni manda avisos: solo comprueba aquí mismo que Bolsillo conecta con tu nube. Para probar el atajo de verdad, paga algo pequeño con Apple Pay y abre Bolsillo.";
+  };
+  document.querySelectorAll("[data-so]").forEach((b) => b.addEventListener("click", () => elegirSo(b.dataset.so)));
+  elegirSo(soPago);
+  new MutationObserver(() => {
+    if (!$("#hoja-applepay").classList.contains("abierta")) return;
+    $("#url-applepay").textContent = new URL("api/apple-pay?clave=" + encodeURIComponent(sync.clave || ""), location.href).href;
+    $("#clave-applepay").textContent = sync.clave || "";
+    $("#url-pago").textContent = new URL("api/pago?clave=" + encodeURIComponent(sync.clave || ""), location.href).href;
+    $("#applepay-rapido").hidden = !ATAJO_APPLE_PAY;
+    $("#applepay-tiempo").hidden = !!ATAJO_APPLE_PAY;
+    $("#applepay-mano").open = !ATAJO_APPLE_PAY && !ANDROID;
+    if (ATAJO_APPLE_PAY) $("#enlace-atajo").href = ATAJO_APPLE_PAY;
+  }).observe($("#hoja-applepay"), { attributes: true, attributeFilter: ["class"] });
+  async function copiar(e) {
+    const b = e.currentTarget;
+    try { await navigator.clipboard.writeText($("#" + b.dataset.copiar).textContent); b.textContent = "Copiado ✓"; setTimeout(() => (b.textContent = "Copiar"), 1800); }
+    catch { avisar("Mantén pulsado el texto para copiarlo"); }
+  }
+  document.querySelectorAll("[data-copiar]").forEach((b) => b.addEventListener("click", copiar));
+  $("#probar-applepay").addEventListener("click", async () => {
+    const salida = $("#resultado-prueba");
+    salida.textContent = "Probando…";
+    try {
+      const r = soPago === "android" ? await api("pago", { titulo: "Mercadona", texto: "12,50 € · Visa ••1234", prueba: true })
+        : await api("apple-pay", { importe: "12,50 €", tienda: "MERCADONA S.A.", prueba: true });
+      const j = await r.json();
+      salida.innerHTML = r.ok ? `<b style="color:var(--verde)">✓ Funciona.</b> Un pago así se apuntaría como: ${esc(j.texto)}` : `<b class="peligro">${esc(j.error || "Error")}</b>`;
+      avisar(r.ok ? "✓ Conexión correcta" : j.error || "Error");
+    } catch { salida.innerHTML = `<b class="peligro">Sin conexión</b>`; avisar("Sin conexión"); }
+    salida.scrollIntoView({ behavior: "smooth", block: "end" }); // el resultado sale al final de la hoja: que se vea
+  });
+
+  // ---------- Avisos ----------
+  // accion: { texto: "Deshacer", fn } → el aviso lleva un botón y dura más
+  let tAviso;
+  function avisar(t, accion) {
+    const a = $("#aviso");
+    a.innerHTML = `<span>${esc(t)}</span>${accion ? `<button>${esc(accion.texto)}</button>` : ""}`;
+    if (accion) a.querySelector("button").addEventListener("click", () => { a.classList.remove("visible"); accion.fn(); }, { once: true });
+    a.classList.add("visible"); clearTimeout(tAviso); tAviso = setTimeout(() => a.classList.remove("visible"), accion ? 5000 : 2200);
+  }
+
+  // Diálogos propios en vez de los del sistema (prompt/confirm): devuelven una promesa
+  //   dialogo({ titulo, texto, campos: [{ id, etiqueta, valor, placeholder, decimal }], opciones: [{ valor, texto, sub }], boton, peligro })
+  //   → con campos: { id: valor } · con opciones: el valor elegido · sin nada: true · cancelado: null
+  let resolverDialogo = null;
+  function dialogo({ titulo, texto = "", campos = [], opciones = null, boton = "Aceptar", peligro = false, cancelar = "Cancelar" }) {
+    const anterior = hojaAbierta;
+    if (anterior) cerrarHoja();
+    $("#titulo-dialogo").textContent = titulo;
+    $("#texto-dialogo").textContent = texto; $("#texto-dialogo").hidden = !texto;
+    $("#campos-dialogo").innerHTML = campos.length ? `<div class="campos">${campos.map((c) => `<div class="campo"><label for="dlg-${c.id}">${esc(c.etiqueta)}</label><input id="dlg-${c.id}" value="${esc(c.valor || "")}" placeholder="${esc(c.placeholder || "")}" autocomplete="off" ${c.decimal ? 'inputmode="decimal" class="num"' : c.tel ? 'inputmode="tel" class="num"' : c.usuario ? 'autocapitalize="off" spellcheck="false"' : 'autocapitalize="sentences"'} maxlength="${c.max || 60}"></div>`).join("")}</div>`
+      : opciones ? `<div class="grupo">${opciones.map((o, i) => `<button class="fila" data-opcion="${i}"><div class="medio"><div class="titulo">${esc(o.texto)}</div>${o.sub ? `<div class="sub">${esc(o.sub)}</div>` : ""}</div><span class="enlace">›</span></button>`).join("")}</div>` : "";
+    const ok = $("#ok-dialogo");
+    ok.textContent = boton; ok.hidden = Boolean(opciones); ok.classList.toggle("rojo", peligro);
+    $("#cancelar-dialogo").textContent = cancelar;
+    return new Promise((resolver) => {
+      const terminar = (valor) => {
+        resolverDialogo = null; cerrarHoja();
+        if (valor === null && anterior) setTimeout(() => abrirHoja(anterior), 260); // al cancelar, vuelves donde estabas
+        resolver(valor);
+      };
+      resolverDialogo = terminar;
+      ok.onclick = () => {
+        if (!campos.length) return terminar(true);
+        const v = Object.fromEntries(campos.map((c) => [c.id, $("#dlg-" + c.id).value.trim()]));
+        if (campos.some((c) => !c.opcional && !v[c.id])) return avisar("Rellena " + campos.find((c) => !c.opcional && !v[c.id]).etiqueta.toLowerCase());
+        terminar(v);
+      };
+      $("#cancelar-dialogo").onclick = () => terminar(null);
+      $("#campos-dialogo").querySelectorAll("[data-opcion]").forEach((b) => (b.onclick = () => terminar(opciones[Number(b.dataset.opcion)].valor)));
+      $("#campos-dialogo").querySelectorAll("input").forEach((i, n, todos) => i.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); n === todos.length - 1 ? ok.click() : todos[n + 1].focus(); } }));
+      setTimeout(() => abrirHoja($("#hoja-dialogo")), anterior ? 260 : 0);
+      if (campos.length) setTimeout(() => $("#campos-dialogo input")?.focus(), anterior ? 320 : 60);
+    });
+  }
+
+  // Cómo instalarla (solo si se abre desde el navegador y no está instalada)
+  const instalada = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+  let ocultarAyuda = false; try { ocultarAyuda = localStorage.getItem("bolsillo.ayuda") === "no"; } catch {}
+  const quitarAyuda = () => { $("#instalar").innerHTML = ""; try { localStorage.setItem("bolsillo.ayuda", "no"); } catch {} };
+  // Desde el botón «Instalar» de la web (?instalar=1): guía a pantalla completa que señala dónde pulsar
+  if (!instalada && new URLSearchParams(location.search).has("instalar") && (ANDROID || /iPhone|iPad/.test(navigator.userAgent))) {
+    history.replaceState(null, "", location.pathname);
+    const guia = document.createElement("div");
+    guia.className = "guia-instalar" + (ANDROID ? " arriba" : "");
+    guia.innerHTML = ANDROID
+      ? `<div class="guia-caja"><strong class="guia-titulo">Instala Bolsillo</strong><p id="guia-auto" hidden>Pulsa el botón y luego <b>Instalar</b>.</p><button class="boton-azul" id="guia-boton" hidden>Instalar Bolsillo</button>
+          <p id="guia-mano">Pulsa el menú <b>⋮</b> de arriba a la derecha y elige <b>Instalar aplicación</b> (o <b>Añadir a pantalla de inicio</b>).</p><button class="enlace" data-cerrar>Ahora no</button></div><div class="guia-flecha">↑</div>`
+      : `<div class="guia-caja"><strong class="guia-titulo">Último paso: añádela a tu pantalla de inicio</strong><p>1. Pulsa <b>Compartir</b> abajo (en iOS 26, primero <b>···</b>).<br>2. Elige <b>Añadir a pantalla de inicio</b> → <b>Añadir</b>.</p><button class="enlace" data-cerrar>Ahora no</button></div><div class="guia-flecha">↓</div>`;
+    document.body.append(guia);
+    guia.querySelector("[data-cerrar]").addEventListener("click", () => guia.remove());
+    if (ANDROID) {
+      const ofrecer = () => {
+        if (!pedirInstalar) return;
+        $("#guia-boton").hidden = false; $("#guia-auto").hidden = false; $("#guia-mano").hidden = true; guia.querySelector(".guia-flecha").hidden = true;
+        $("#guia-boton").onclick = async () => { pedirInstalar.prompt(); await pedirInstalar.userChoice; pedirInstalar = null; guia.remove(); };
+      };
+      ofrecer(); addEventListener("beforeinstallprompt", ofrecer);
+      addEventListener("appinstalled", () => guia.remove());
+    }
+  }
+  if (!instalada && !ocultarAyuda && /iPhone|iPad/.test(navigator.userAgent)) {
+    $("#instalar").innerHTML = `<div class="instalar"><p><b>Instálala como app:</b> pulsa <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;color:var(--acento)"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg> Compartir y luego <b>«Añadir a pantalla de inicio»</b>.</p><button aria-label="Ocultar">×</button></div>`;
+    $("#instalar button").addEventListener("click", quitarAyuda);
+  } else if (!instalada && !ocultarAyuda && ANDROID) {
+    // En Android, Chrome deja instalarla con un botón propio; si no lo ofrece, va por el menú ⋮
+    $("#instalar").innerHTML = `<div class="instalar"><p><b>Instálala como app:</b> en Chrome, pulsa el menú <b>⋮</b> (arriba a la derecha) y luego <b>«Instalar aplicación»</b> o <b>«Añadir a pantalla de inicio»</b>.
+      <button class="boton-azul" id="instalar-android" hidden style="display:block;margin-top:10px;font-size:15px;color:#fff">Instalar Bolsillo</button></p><button aria-label="Ocultar">×</button></div>`;
+    $("#instalar [aria-label=Ocultar]").addEventListener("click", quitarAyuda);
+    const ofrecer = () => {
+      const b = $("#instalar-android"); if (!b || !pedirInstalar) return;
+      b.hidden = false;
+      b.onclick = async () => { pedirInstalar.prompt(); const { outcome } = await pedirInstalar.userChoice; pedirInstalar = null; if (outcome === "accepted") quitarAyuda(); else b.hidden = true; };
+    };
+    ofrecer(); addEventListener("beforeinstallprompt", ofrecer);
+    addEventListener("appinstalled", quitarAyuda);
+  }
+
+  // Al volver a la app otro día, que se vea el mes de hoy
+  // (y que se traiga los pagos de Apple Pay hechos mientras estaba cerrada)
+  document.addEventListener("visibilitychange", () => { if (document.hidden) return; if (!hojaAbierta) pintar(); sincronizar(); });
+  addEventListener("online", sincronizar);
+  setInterval(() => { if (!document.hidden) sincronizar(); }, 60_000);
+  // Actualizaciones: el iPhone no recarga la app al volver a ella (la despierta tal cual), así que al volver se mira si hay versión nueva.
+  // Cuando la hay, la app se recarga sola en un momento tranquilo: sin hojas abiertas, o la próxima vez que vuelvas.
+  if ("serviceWorker" in navigator) {
+    const habiaVersion = Boolean(navigator.serviceWorker.controller);
+    let nueva = false;
+    const recargarSiToca = () => { if (nueva && !hojaAbierta && !document.hidden) location.reload(); };
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (habiaVersion) { nueva = true; recargarSiToca(); } });
+    navigator.serviceWorker.register("sw.js").then((reg) => {
+      document.addEventListener("visibilitychange", () => { if (document.hidden) return; recargarSiToca(); reg.update().catch(() => {}); });
+    }).catch(() => {});
+  }
+  pintar();
+  sincronizar();
+})();
+</script>
+<script src="extras.js"></script>
+</body>
+</html>

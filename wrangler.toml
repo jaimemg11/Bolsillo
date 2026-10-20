@@ -1,0 +1,9 @@
+# Bolsillo en Cloudflare Pages: la app (public/) y su API (functions/) con la base de datos D1
+name = "bolsillo-app"
+pages_build_output_dir = "./public"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bolsillo"
+database_id = "e9d60c66-66fd-4996-8a03-26a1762de060"
