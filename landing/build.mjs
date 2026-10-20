@@ -59,7 +59,7 @@ const pie = () => `<footer class="pie">
   <div class="contenedor pie__dentro">
     <div class="pie__marca"><img src="/icono-192.png" alt="" width="32" height="32"><div><b>Bolsillo</b><span>Tus gastos del mes, sin líos.</span></div></div>
     <nav aria-label="Legal"><ul role="list" class="pie__enlaces">
-      <li><a href="${sitio.urlApp}">Abrir la app</a></li><li><a href="/novedades/">Novedades</a></li><li><a href="/privacidad/">Privacidad</a></li><li><a href="/aviso-legal/">Aviso legal</a></li></ul></nav>
+      <li><a href="${sitio.urlApp}">Abrir la app</a></li><li><a href="/novedades/">Novedades</a></li><li><a href="https://github.com/jaimemg11/Bolsillo" rel="noopener">Código en GitHub</a></li><li><a href="/privacidad/">Privacidad</a></li><li><a href="/aviso-legal/">Aviso legal</a></li></ul></nav>
     <p class="pie__nota">Apple Pay es una marca de Apple Inc. y Google Wallet, de Google LLC. Bolsillo no está afiliado a ellas.</p>
   </div>
 </footer>`;
@@ -179,6 +179,17 @@ ${nav()}
     <div class="contenedor estrecho">
       <h2 class="titulo-seccion aparece" id="t-faq">Preguntas frecuentes</h2>
       <div class="faq">${faq.map((f) => `<details class="aparece"><summary>${esc(f.p)}${icono("caret-down")}</summary><p>${esc(f.r)}</p></details>`).join("")}</div>
+    </div>
+  </section>
+
+  <section class="seccion autor" id="autor" aria-labelledby="t-autor">
+    <div class="contenedor estrecho">
+      <div class="autor__caja tarjeta aparece">
+        <p class="autor__etiqueta">Quién está detrás</p>
+        <h2 class="autor__titulo" id="t-autor">Hecha por un joven, para jóvenes</h2>
+        <p class="autor__texto">Soy Jaime, estudiante de DAW. Creé Bolsillo porque no llegaba a final de mes y no sabía en qué se me iba el dinero, igual que a mis amigos. El código es abierto: puedes ver cómo está hecha por dentro.</p>
+        <a class="boton boton--grande boton--secundario" href="https://github.com/jaimemg11/Bolsillo" rel="noopener">${icono("github-logo")}Ver el código en GitHub</a>
+      </div>
     </div>
   </section>
 
