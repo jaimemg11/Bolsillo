@@ -244,6 +244,15 @@
     const avisoFijos = faltan.length ? `<button class="banner" id="banner-fijos" style="width:100%;text-align:left"><span class="icono chico" style="--c:#5856d6">${ico("calendar-check")}</span><span>Este mes aún faltan <b>${faltan.length === 1 ? esc(faltan[0].nombre) : `${faltan.length} gastos fijos`}</b>: ${euros(faltan.reduce((s, f) => s + f.importe, 0))}${faltan.length === 1 ? ` (día ${faltan[0].dia})` : ""}.</span></button>` : "";
     caja.innerHTML = avisoFijos + (esActual && proximas.length ? proximas.map((s) => `<div class="banner"><span class="icono chico" style="--c:#ff9500">${ico("bell")}</span><span>${s.faltan === 0 ? "Hoy" : s.faltan === 1 ? "Mañana" : `En ${s.faltan} días`} se renueva <b>${esc(s.nombre)}</b> (${euros(s.importe)}). ¿La sigues usando?</span></div>`).join("") : "")
       + (delMes.length >= 3 ? `<button class="compartir-mes" id="abrir-wrapped"><span class="icono-blanco">${ico("camera")}</span><div><b>Tu ${B.nombreMes(B.mesVisto)} en Bolsillo</b><small>Crea una tarjeta para tus stories</small></div><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></button>` : "");
+    // Préstamos sin devolver: no cuentan en el gasto, pero se ven aquí para que no se olviden
+    if (esActual && B.sync.clave) {
+      const prest = gruposCache.filter(esPrestamo).map((g) => ({ g, mio: saldos(g)[g.yo] || 0 })).filter((x) => x.mio);
+      const nombres = (n) => n.length === 1 ? n[0] : `${n[0]} y ${n.length - 1} más`;
+      const fila = (lista, color, icono, texto) => lista.length ? `<button class="banner" data-banner-prestamo="${lista.length === 1 ? lista[0].g.id : ""}" style="width:100%;text-align:left"><span class="icono chico" style="--c:${color}">${ico(icono)}</span><span>${texto(euros(Math.abs(lista.reduce((t, x) => t + x.mio, 0))), nombres(lista.map((x) => esc(otroDe(x.g).nombre))))}</span></button>` : "";
+      caja.insertAdjacentHTML("afterbegin", fila(prest.filter((x) => x.mio > 0), "#ff9500", "coins", (q, n) => `Te deben <b>${q}</b> de préstamos: ${n}.`)
+        + fila(prest.filter((x) => x.mio < 0), "#ff3b30", "wallet", (q, n) => `Debes <b>${q}</b> de préstamos: ${n}.`));
+      caja.querySelectorAll("[data-banner-prestamo]").forEach((b) => b.addEventListener("click", () => (b.dataset.bannerPrestamo ? abrirPrestamo(b.dataset.bannerPrestamo) : B.irVista("grupos"))));
+    }
     $("#abrir-wrapped")?.addEventListener("click", abrirWrapped);
     $("#banner-fijos")?.addEventListener("click", abrirFijos);
     $("#extras-subs").innerHTML = subs.length ? `<h2>Cobros que se repiten</h2><div class="grupo">${subs.map((s) => {
@@ -342,7 +351,7 @@
       if (grupoAbierto) grupoAbierto = gruposCache.find((g) => g.id === grupoAbierto.id) || null;
     } catch {} finally { cargandoGrupos = false; }
     pintarGrupos(); if (grupoAbierto && $("#hoja-grupo").classList.contains("abierta")) pintarGrupo();
-    evaluarInsignias();
+    evaluarInsignias(); pintarEnMes();
   }
   async function accionGrupo(accion, cuerpo) {
     const r = await B.api("grupos/" + accion, cuerpo);
@@ -392,6 +401,10 @@
     return pagos;
   }
   const nombreDe = (g, id) => g.miembros.find((m) => m.id === id)?.nombre || "?";
+  // Un préstamo es un grupo de dos: tú y tu amigo. Se ve con el nombre del otro (desde cada lado, el suyo)
+  const esPrestamo = (g) => g.tipo === "prestamo";
+  const otroDe = (g) => g.miembros.find((m) => m.id !== g.yo) || { id: "", nombre: "?" };
+  const textoSaldo = (mio) => mio > 0 ? `Te debe<br>${euros(mio)}` : mio < 0 ? `Le debes<br>${euros(-mio)}` : "En paz ✓";
   function pintarGrupos() {
     const v = $("#vista-grupos");
     if (!v || v.hidden) return;
@@ -403,14 +416,17 @@
     v.innerHTML = `<div class="cabecera"><h1>Amigos</h1></div>
       ${seccionDuelos()}
       ${seccionCirculos()}
+      ${seccionPrestamos()}
       <h2>Grupos de gastos</h2>
-      ${gruposCache.length ? `<div class="grupo">${gruposCache.map((g) => {
+      ${gruposCache.filter((g) => !esPrestamo(g)).length ? `<div class="grupo">${gruposCache.filter((g) => !esPrestamo(g)).map((g) => {
         const mio = saldos(g)[g.yo] || 0;
         return `<button class="fila" data-grupo="${g.id}"><div class="icono" style="--c:#007aff">${ico("users-three")}</div><div class="medio"><div class="titulo">${esc(g.nombre)}</div><div class="sub">${(() => { const av = (g.cobros || []).filter((c) => c.a === g.yo && c.estado === "pagado"); return av.length ? `<b style="color:var(--verde)">${av.length === 1 ? `${esc(nombreDe(g, av[0].de))} dice que te ha pagado` : `${av.length} pagos por confirmar`}</b>` : plural(g.miembros.length, "persona", "personas"); })()}</div></div>
           <div class="cifra num ${mio > 0 ? "ingreso" : mio < 0 ? "pasado" : ""}" style="text-align:right;font-size:14px">${mio > 0 ? `Te deben<br>${euros(mio)}` : mio < 0 ? `Debes<br>${euros(-mio)}` : "En paz ✓"}</div></button>`;
       }).join("")}</div>` : `<div class="vacio"><b>Aún no tienes grupos</b>Crea uno para el piso o un viaje e invita a los demás con un código.</div>`}
       <div class="botones-par"><button class="boton-azul" id="crear-grupo">Crear grupo</button><button class="boton-gris" id="unirse-grupo">Unirme con código</button></div>`;
     v.querySelectorAll("[data-grupo]").forEach((b) => b.addEventListener("click", () => { grupoAbierto = gruposCache.find((g) => g.id === b.dataset.grupo); pintarGrupo(); B.abrirHoja($("#hoja-grupo")); }));
+    v.querySelectorAll("[data-prestamo]").forEach((b) => b.addEventListener("click", () => abrirPrestamo(b.dataset.prestamo)));
+    $("#nuevo-prestamo").addEventListener("click", () => nuevoPrestamo());
     $("#crear-grupo").addEventListener("click", crearGrupo);
     $("#unirse-grupo").addEventListener("click", () => unirse());
     engancharDuelos(v);
@@ -792,7 +808,7 @@
     if (!misDatosCobro && !(await pedirDatosCobro())) return volverAlGrupo();
     try {
       const id = await abrirCobro(g, p);
-      await compartirTexto(`${nombreDe(g, g.yo)} te pide ${euros(p.importe)} de «${g.nombre}». Págalo aquí en un momento: ${enlaceCobro(id)}`, "Enlace copiado: pégalo en WhatsApp");
+      await compartirTexto(`${nombreDe(g, g.yo)} te pide ${esPrestamo(g) ? `los ${euros(p.importe)} que te dejó` : `${euros(p.importe)} de «${g.nombre}»`}. Págalo aquí en un momento: ${enlaceCobro(id)}`, "Enlace copiado: pégalo en WhatsApp");
       cargarGrupos();
     } catch (e) { avisar(e.message); }
   }
@@ -812,7 +828,8 @@
       await cargarGrupos();
       if (r.llegados) { avisar(`Toque enviado a ${m.nombre}`); return volverAlGrupo(); }
       // Sin la app o sin avisos: el toque va por WhatsApp, con el enlace para pagar
-      const texto = (tipo === "picante" ? `Los ${q} de «${g.nombre}» no se van a pagar solos.` : `Te recuerdo los ${q} de «${g.nombre}».`) + ` Págalo aquí en un momento: ${enlaceCobro(id)}`;
+      const de = esPrestamo(g) ? "que te dejé" : `de «${g.nombre}»`;
+      const texto = (tipo === "picante" ? `Los ${q} ${de} no se van a pagar solos.` : `Te recuerdo los ${q} ${de}.`) + ` Págalo aquí en un momento: ${enlaceCobro(id)}`;
       if (await B.dialogo({ titulo: "Mándaselo por WhatsApp", texto: `${m.nombre} no tiene ${m.con_app ? "los avisos activados" : "la app"}, así que el aviso no le llega. Mándale el toque por WhatsApp con el enlace para pagar.`, boton: "Mandar" })) await compartirTexto(texto, "Toque copiado: pégalo en WhatsApp");
       volverAlGrupo();
     } catch (e) { avisar(e.message); volverAlGrupo(); }
@@ -840,9 +857,98 @@
     }, 700);
   }
 
+  // ============ Préstamos: «le he dejado 20 € a Dani» ============
+  // No cuentan como gasto ni como ingreso (es dinero que vuelve). Van en la nube para poder cobrarlos con el enlace y avisar si se olvidan.
+  function seccionPrestamos() {
+    const lista = gruposCache.filter(esPrestamo).map((g) => ({ g, mio: saldos(g)[g.yo] || 0 })).sort((a, b) => Math.abs(b.mio) - Math.abs(a.mio));
+    return `<h2>Préstamos</h2>
+      ${lista.length ? `<div class="grupo">${lista.map(({ g, mio }) => `<button class="fila" data-prestamo="${g.id}"><div class="icono" style="--c:${mio > 0 ? "#ff9500" : mio < 0 ? "#ff3b30" : "#28a745"}">${ico(mio ? "coins" : "handshake")}</div>
+        <div class="medio"><div class="titulo">${esc(otroDe(g).nombre)}</div><div class="sub">${plural(g.gastos.length, "movimiento", "movimientos")}</div></div>
+        <div class="cifra num ${mio > 0 ? "ingreso" : mio < 0 ? "pasado" : ""}" style="text-align:right;font-size:14px">${textoSaldo(mio)}</div></button>`).join("")}</div>`
+        : `<div class="tarjeta-duelo-vacia"><span class="icono" style="--c:#ff9500">${ico("coins")}</span><div><b>¿Le has dejado dinero a alguien?</b><span>Apúntalo y no se te olvida: si en una semana no te lo ha devuelto, te avisamos, y se lo cobras con un enlace.</span></div></div>`}
+      <button class="boton-azul" id="nuevo-prestamo" style="width:100%;margin-top:10px">Apuntar un préstamo</button>`;
+  }
+  async function abrirPrestamo(id) {
+    grupoAbierto = gruposCache.find((g) => g.id === id);
+    if (!grupoAbierto) { await cargarGrupos(); grupoAbierto = gruposCache.find((g) => g.id === id); }
+    if (!grupoAbierto) return avisar("Ese préstamo ya no está");
+    B.irVista("grupos"); B.cerrarHoja(); setTimeout(() => { pintarGrupo(); B.abrirHoja($("#hoja-grupo")); }, 260);
+  }
+  async function nuevoPrestamo(g, direccion) {
+    if (!B.sync.clave) {
+      if (!(await B.dialogo({ titulo: "Necesitas tu nube", texto: "Los préstamos se guardan en la nube para poder mandarle el enlace de cobro y avisarte si no te lo devuelve. Es gratis y no pide email.", boton: "Crear mi nube" }))) return;
+      await B.crearNube(); if (!B.sync.clave) return;
+    }
+    const otro = g ? otroDe(g).nombre : "";
+    direccion ||= await B.dialogo({ titulo: otro ? `Préstamo con ${otro}` : "Apuntar un préstamo", opciones: [
+      { valor: "dejo", texto: otro ? `Le he dejado dinero a ${otro}` : "Le he dejado dinero a alguien", sub: "Si no te lo devuelve, te avisamos" },
+      { valor: "me", texto: otro ? `${otro} me ha dejado dinero` : "Alguien me ha dejado dinero", sub: "Para que no se te olvide devolverlo" }] });
+    if (!direccion) return g && volverAlGrupo();
+    const campos = [{ id: "importe", etiqueta: "Cuánto", placeholder: "20", decimal: true, max: 9 }];
+    if (!g) campos.push({ id: "amigo", etiqueta: direccion === "dejo" ? "A quién" : "Quién", placeholder: "Dani", max: 24 });
+    campos.push({ id: "concepto", etiqueta: "Para qué", placeholder: "Opcional", max: 40, opcional: true });
+    if (!miNombre()) campos.push({ id: "yo", etiqueta: "Tu nombre", placeholder: "Sale en el enlace de cobro", max: 24 });
+    const v = await B.dialogo({ titulo: direccion === "dejo" ? "Le he dejado dinero" : "Me han dejado dinero", campos, boton: "Apuntar",
+      texto: direccion === "dejo" ? "No cuenta como gasto: es dinero que vuelve." : "No cuenta como ingreso: es dinero que tienes que devolver." });
+    if (!v) return g && volverAlGrupo();
+    const importe = B.aCentimos(v.importe);
+    if (!importe) return avisar("Pon cuánto dinero");
+    if (v.yo) guardarMiNombre(v.yo);
+    try {
+      const { id } = await accionGrupo("prestamo", { grupo: g?.id, amigo: v.amigo, importe, direccion, concepto: v.concepto, minombre: miNombre() });
+      await cargarGrupos();
+      const nuevo = gruposCache.find((x) => x.id === id);
+      if (!nuevo) return;
+      const mio = saldos(nuevo)[nuevo.yo] || 0, quien = otroDe(nuevo).nombre;
+      avisar(mio > 0 ? `Apuntado: ${quien} te debe ${euros(mio)}` : mio < 0 ? `Apuntado: le debes ${euros(-mio)} a ${quien}` : `Apuntado: ${quien} y tú estáis en paz`);
+      abrirPrestamo(id);
+    } catch (e) { avisar(e.message); }
+  }
+  // «Me lo ha devuelto» o «Se lo he devuelto»: todo o una parte (con lo que falte, sigue el préstamo)
+  async function apuntarDevuelto(g) {
+    const mio = saldos(g)[g.yo] || 0, otro = otroDe(g);
+    if (!mio) return;
+    const v = await B.dialogo({ titulo: mio > 0 ? `¿Cuánto te ha devuelto ${otro.nombre}?` : `¿Cuánto le has devuelto a ${otro.nombre}?`, boton: "Apuntar",
+      texto: "Si es solo una parte, cambia la cantidad: el resto sigue pendiente.", campos: [{ id: "importe", etiqueta: "Cuánto", valor: String(Math.abs(mio) / 100).replace(".", ","), decimal: true, max: 9 }] });
+    if (!v) return volverAlGrupo();
+    const importe = Math.min(B.aCentimos(v.importe), Math.abs(mio));
+    if (!importe) return avisar("Pon cuánto");
+    const de = mio > 0 ? otro.id : g.yo, a = mio > 0 ? g.yo : otro.id;
+    try {
+      await accionGrupo("gasto", { grupo: g.id, gasto: { id: "p" + Date.now().toString(36), tipo: "pago", pagador: de, importe, concepto: "Devuelto", reparto: { [a]: importe }, fecha: B.hoyISO() } });
+      await cargarGrupos(); volverAlGrupo();
+      avisar(importe === Math.abs(mio) ? `${otro.nombre} y tú estáis en paz` : `Apuntado. Quedan ${euros(Math.abs(mio) - importe)}`);
+    } catch (e) { avisar(e.message); }
+  }
+  function pintarPrestamo() {
+    const g = grupoAbierto, h = $("#grupo-cuerpo"), otro = otroDe(g), s = saldos(g), mio = s[g.yo] || 0, pagos = liquidar(s);
+    $("#titulo-grupo").textContent = otro.nombre;
+    const linea = (x) => x.tipo === "pago" ? (x.pagador === g.yo ? "Le devolviste" : "Te devolvió") : (x.pagador === g.yo ? "Le dejaste" : "Te dejó");
+    h.innerHTML = `<div class="prestamo-total"><span>${mio > 0 ? `${esc(otro.nombre)} te debe` : mio < 0 ? `Le debes a ${esc(otro.nombre)}` : "Estáis en paz"}</span>
+        <b class="num ${mio > 0 ? "ingreso" : mio < 0 ? "pasado" : ""}">${mio ? euros(Math.abs(mio)) : "✓"}</b></div>
+      ${seccionMisCuentas(g, pagos)}
+      <div class="botones-par">${mio ? `<button class="boton-azul" id="prestamo-devuelto">${mio > 0 ? "Me lo ha devuelto" : "Se lo he devuelto"}</button>` : ""}<button class="boton-gris" id="prestamo-otro">Apuntar otro</button></div>
+      <h2>Historial</h2><div class="grupo">${g.gastos.map((x) => `<button class="fila" data-gasto-grupo="${x.id}"><div class="icono" style="--c:${x.tipo === "pago" ? "#28a745" : x.pagador === g.yo ? "#ff9500" : "#5856d6"}">${ico(x.tipo === "pago" ? "handshake" : "coins")}</div>
+        <div class="medio"><div class="titulo">${linea(x)} ${euros(x.importe)}</div><div class="sub">${x.tipo === "pago" || x.concepto === "Préstamo" ? "" : esc(x.concepto) + " · "}${fechaCorta(x.fecha)}</div></div><span class="enlace">Borrar</span></button>`).join("")}</div>
+      <div class="copiar" style="margin-top:18px"><span style="flex:1">¿${esc(otro.nombre)} tiene Bolsillo? Así lo ve también y le llegan tus toques.</span><button id="invitar">Invitar</button></div>
+      <div class="campos" style="margin-top:14px"><div class="campo"><button class="boton-fila" id="mis-datos-cobro">Cómo me pagan</button><span class="estado-sync">${esc(textoDatosCobro())}</span></div></div>
+      <button class="borrar" id="salir-grupo">Borrar este préstamo</button>`;
+    engancharMisCuentas(g, h, pagos);
+    $("#prestamo-devuelto")?.addEventListener("click", () => apuntarDevuelto(g));
+    $("#prestamo-otro").addEventListener("click", () => nuevoPrestamo(g));
+    h.querySelectorAll("[data-gasto-grupo]").forEach((b) => b.addEventListener("click", () => borrarGastoGrupo(g.gastos.find((y) => y.id === b.dataset.gastoGrupo))));
+    $("#mis-datos-cobro").addEventListener("click", async () => { if (await pedirDatosCobro()) volverAlGrupo(); });
+    $("#invitar").addEventListener("click", () => compartirTexto(`Te he apuntado en Bolsillo lo de nuestro préstamo, para que lo veas tú también: abre ${location.origin}/?unirse=${g.codigo} y elige tu nombre.`, "Invitación copiada"));
+    $("#salir-grupo").addEventListener("click", async () => {
+      if (!(await B.dialogo({ titulo: "¿Borrar este préstamo?", texto: mio ? "Aún no está saldado. Si lo borras, dejarás de verlo y no te avisaremos." : "Ya está saldado. Dejarás de verlo en tu lista.", boton: "Borrar", peligro: true }))) return volverAlGrupo();
+      try { await accionGrupo("salir", { grupo: g.id }); grupoAbierto = null; await cargarGrupos(); avisar("Préstamo borrado"); } catch (e) { avisar(e.message); }
+    });
+  }
+
   function pintarGrupo() {
     const g = grupoAbierto, h = $("#grupo-cuerpo");
     if (!g) return;
+    if (esPrestamo(g)) return pintarPrestamo();
     $("#titulo-grupo").textContent = g.nombre;
     const s = saldos(g), pagos = liquidar(s);
     const otros = pagos.filter((p) => p.de !== g.yo && p.a !== g.yo);
@@ -1306,6 +1412,10 @@
   // Desde el aviso de un pago: bolsillo…/?cobro=ID
   const cobroAviso = new URLSearchParams(location.search).get("cobro");
   if (cobroAviso && B.sync.clave) { history.replaceState(null, "", location.pathname); setTimeout(() => abrirCobroDeAviso(cobroAviso), 400); }
+  // Desde el recordatorio de un préstamo: bolsillo…/?prestamo=ID
+  const prestamoAviso = new URLSearchParams(location.search).get("prestamo");
+  if (prestamoAviso && B.sync.clave) { history.replaceState(null, "", location.pathname); setTimeout(() => abrirPrestamo(prestamoAviso), 400); }
+  $("[data-abrir-prestamo]").addEventListener("click", () => { B.cerrarHoja(); setTimeout(() => nuevoPrestamo(), 260); });
   // Reto de un amigo: bolsillo…/?duelo=CODIGO
   const reto = new URLSearchParams(location.search).get("duelo");
   if (reto) { history.replaceState(null, "", location.pathname); B.irVista("grupos"); setTimeout(() => unirseDuelo(reto), 400); }

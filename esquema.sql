@@ -15,8 +15,8 @@ CREATE INDEX IF NOT EXISTS movs_usuario_servido ON movs (usuario, servido);
 CREATE TABLE IF NOT EXISTS ajustes (usuario TEXT NOT NULL, clave TEXT NOT NULL, valor TEXT, actualizado TEXT NOT NULL, servido INTEGER NOT NULL, PRIMARY KEY (usuario, clave));
 -- Grupos (piso, viaje, amigos): gastos compartidos y quién debe a quién.
 -- Un miembro puede ser alguien con Bolsillo (usuario) o solo un nombre (un amigo sin la app).
-CREATE TABLE IF NOT EXISTS grupos (id TEXT PRIMARY KEY, nombre TEXT NOT NULL, codigo TEXT NOT NULL UNIQUE, creado TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS miembros (grupo TEXT NOT NULL, id TEXT NOT NULL, nombre TEXT NOT NULL, usuario TEXT, creado TEXT NOT NULL, PRIMARY KEY (grupo, id));
+CREATE TABLE IF NOT EXISTS grupos (id TEXT PRIMARY KEY, nombre TEXT NOT NULL, codigo TEXT NOT NULL UNIQUE, creado TEXT NOT NULL, tipo TEXT NOT NULL DEFAULT 'grupo'); -- tipo: grupo o prestamo (dos personas)
+CREATE TABLE IF NOT EXISTS miembros (grupo TEXT NOT NULL, id TEXT NOT NULL, nombre TEXT NOT NULL, usuario TEXT, creado TEXT NOT NULL, recordado TEXT, recordatorios INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (grupo, id));
 CREATE INDEX IF NOT EXISTS miembros_usuario ON miembros (usuario);
 CREATE TABLE IF NOT EXISTS gastos_grupo (
   grupo TEXT NOT NULL, id TEXT NOT NULL,

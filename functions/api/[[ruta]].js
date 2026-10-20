@@ -213,7 +213,7 @@ const demasiadosCodigos = () => json({ error: "Demasiados códigos que no existe
 const miGrupo = (usuario, grupo, env) => env.DB.prepare("SELECT id FROM miembros WHERE grupo = ?1 AND usuario = ?2").bind(grupo, usuario).first();
 
 async function verGrupos(usuario, env) {
-  const { results: mios } = await env.DB.prepare("SELECT g.id, g.nombre, g.codigo, m.id AS yo FROM grupos g JOIN miembros m ON m.grupo = g.id WHERE m.usuario = ?1 ORDER BY g.creado").bind(usuario).all();
+  const { results: mios } = await env.DB.prepare("SELECT g.id, g.nombre, g.codigo, g.tipo, m.id AS yo FROM grupos g JOIN miembros m ON m.grupo = g.id WHERE m.usuario = ?1 ORDER BY g.creado").bind(usuario).all();
   const grupos = [];
   for (const g of mios) {
     const [{ results: miembros }, { results: gastos }, { results: cobros }] = await Promise.all([
@@ -231,7 +231,7 @@ async function grupos(accion, usuario, cuerpo, env) {
   if (accion === "crear") {
     const nombre = String(cuerpo.nombre || "").trim().slice(0, 40), yo = nombreMiembro(cuerpo.minombre);
     if (!nombre || !yo) return json({ error: "Pon nombre al grupo y tu nombre" }, 400);
-    const { n } = await env.DB.prepare("SELECT count(*) AS n FROM miembros WHERE usuario = ?1").bind(usuario).first();
+    const { n } = await env.DB.prepare("SELECT count(*) AS n FROM miembros m JOIN grupos g ON g.id = m.grupo WHERE m.usuario = ?1 AND g.tipo = 'grupo'").bind(usuario).first();
     if (n >= 30) return json({ error: "Ya estás en 30 grupos" }, 400);
     const id = idCorto("g"), ahora = new Date().toISOString();
     await env.DB.batch([
@@ -258,6 +258,8 @@ async function grupos(accion, usuario, cuerpo, env) {
     }
     return json({ ok: true, id: g.id });
   }
+  // Préstamo suelto a un amigo (o de un amigo): va a un grupo de dos, uno por amigo, para reutilizar cobros, toques y avisos
+  if (accion === "prestamo") return await prestamo(usuario, cuerpo, env);
   // El resto necesita ser del grupo
   const grupo = String(cuerpo.grupo || "");
   const yo = await miGrupo(usuario, grupo, env);
@@ -333,6 +335,43 @@ async function grupos(accion, usuario, cuerpo, env) {
     return json({ ok: true, llegados, conApp: Boolean(c.deudor) });
   }
   return json({ error: "No existe" }, 404);
+}
+
+// «Le he dejado 20 € a Dani» (dejo) o «Dani me ha dejado 20 €» (me): se apunta en el préstamo con Dani, o se crea.
+// Se busca por el nombre del amigo sin tildes ni mayúsculas, así «dani» y «Dani» son el mismo préstamo.
+const comparable = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+async function prestamo(usuario, cuerpo, env) {
+  const amigo = nombreMiembro(cuerpo.amigo), importe = Number(cuerpo.importe), dejo = cuerpo.direccion !== "me";
+  if (!Number.isInteger(importe) || importe <= 0 || importe > 10_000_000) return json({ error: "Pon cuánto dinero" }, 400);
+  let g = null;
+  if (cuerpo.grupo) {
+    g = await env.DB.prepare(`SELECT g.id, me.id AS yo, otro.id AS otro FROM grupos g JOIN miembros me ON me.grupo = g.id AND me.usuario = ?2
+      JOIN miembros otro ON otro.grupo = g.id AND otro.id <> me.id WHERE g.id = ?1 AND g.tipo = 'prestamo'`).bind(String(cuerpo.grupo), usuario).first();
+    if (!g) return json({ error: "Ese préstamo ya no existe" }, 404);
+  } else {
+    if (!amigo) return json({ error: "Pon a quién" }, 400);
+    const { results } = await env.DB.prepare(`SELECT g.id, me.id AS yo, otro.id AS otro, otro.nombre FROM grupos g JOIN miembros me ON me.grupo = g.id AND me.usuario = ?1
+      JOIN miembros otro ON otro.grupo = g.id AND otro.id <> me.id WHERE g.tipo = 'prestamo'`).bind(usuario).all();
+    g = results.find((x) => comparable(x.nombre) === comparable(amigo));
+    if (!g) {
+      if (results.length >= 50) return json({ error: "Ya tienes 50 préstamos. Borra alguno que esté saldado." }, 400);
+      g = { id: idCorto("g"), yo: idCorto("m"), otro: idCorto("m") + "b" };
+      const ahora = new Date().toISOString();
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO grupos (id, nombre, codigo, creado, tipo) VALUES (?1, ?2, ?3, ?4, 'prestamo')").bind(g.id, amigo, codigoNuevo(), ahora),
+        env.DB.prepare("INSERT INTO miembros (grupo, id, nombre, usuario, creado) VALUES (?1, ?2, ?3, ?4, ?5)").bind(g.id, g.yo, nombreMiembro(cuerpo.minombre) || "Yo", usuario, ahora),
+        env.DB.prepare("INSERT INTO miembros (grupo, id, nombre, usuario, creado) VALUES (?1, ?2, ?3, NULL, ?4)").bind(g.id, g.otro, amigo, ahora),
+      ]);
+    }
+  }
+  // Quien deja el dinero es quien «paga»; quien lo recibe lo debe entero. Cada préstamo nuevo vuelve a contar los recordatorios desde cero.
+  const pagador = dejo ? g.yo : g.otro, recibe = dejo ? g.otro : g.yo, ahora = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO gastos_grupo (grupo, id, tipo, pagador, importe, concepto, reparto, fecha, creado, autor, borrado, servido) VALUES (?1, ?2, 'gasto', ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10)`)
+      .bind(g.id, "pr" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), pagador, importe, String(cuerpo.concepto || "").trim().slice(0, 60) || "Préstamo", JSON.stringify({ [recibe]: importe }), hoyMadrid(), ahora, g.yo, Date.now()),
+    env.DB.prepare("UPDATE miembros SET recordado = NULL, recordatorios = 0 WHERE grupo = ?1").bind(g.id),
+  ]);
+  return json({ ok: true, id: g.id });
 }
 
 // Cómo quieres que te paguen tus amigos (se ve solo en tus enlaces de cobro)

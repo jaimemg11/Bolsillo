@@ -112,7 +112,7 @@ export async function onRequestGet({ params, env, request }) {
       <div class="fila"><a class="boton chico" href="https://revolut.me/${encodeURIComponent(m.revolut)}" target="_blank" rel="noopener">Abrir Revolut</a><button class="chico" data-copiar="${decimal.replace(".", ",")}" data-que="Importe">Copiar importe</button></div></div>`,
   ].filter(Boolean);
 
-  const cabeza = `<div class="cabeza"><p>${esc(c.a)} te pide</p><div class="importe">${q}</div><p>de «${esc(c.grupo)}»</p></div>`;
+  const cabeza = `<div class="cabeza"><p>${esc(c.a)} te pide</p><div class="importe">${q}</div><p>${c.tipo === "prestamo" ? "que te dejó" : `de «${esc(c.grupo)}»`}</p></div>`;
   let cuerpo;
   if (c.estado === "confirmado") cuerpo = cabeza + `<div class="tarjeta estado"><div class="icono">✓</div><b>Pagado</b><span>${esc(c.a)} ha confirmado que le ha llegado. Estáis en paz.</span></div>`;
   else if (c.estado === "pagado") cuerpo = cabeza + `<div class="tarjeta estado espera"><div class="icono">…</div><b>Avisado</b><span>${esc(c.a)} tiene que confirmar que le ha llegado. Cuando lo haga, la deuda se borra sola.</span></div>`;
@@ -121,5 +121,5 @@ export async function onRequestGet({ params, env, request }) {
     + `<button class="grande" id="ya-pagado">Ya te he pagado</button>
       <div class="tarjeta" id="elegir-metodo" hidden style="margin-top:12px"><div class="metodo"><b>¿Cómo le has pagado?</b><small>${esc(c.a)} recibirá un aviso para confirmarlo.</small></div>
         <div class="metodos-pagado"><button data-metodo="bizum">Bizum</button><button data-metodo="paypal">PayPal</button><button data-metodo="revolut">Revolut</button><button data-metodo="efectivo">Efectivo</button><button data-metodo="otro">Otro</button></div></div>`;
-  return new Response(pagina({ titulo: `${c.a} te pide ${q}`, descripcion: `De «${c.grupo}». ${(() => { const v = [m.bizum && "Bizum", m.paypal && "PayPal", m.revolut && "Revolut"].filter(Boolean); return v.length ? `Págalo en un momento por ${v.length > 1 ? v.slice(0, -1).join(", ") + " o " + v.at(-1) : v[0]}.` : "Págalo y avísale en un toque."; })()}`, url, cuerpo, datos: c.estado === "pendiente" ? { id: c.id } : null }), { headers: cabeceras });
+  return new Response(pagina({ titulo: `${c.a} te pide ${q}`, descripcion: `${c.tipo === "prestamo" ? "Lo que te dejó." : `De «${c.grupo}».`} ${(() => { const v = [m.bizum && "Bizum", m.paypal && "PayPal", m.revolut && "Revolut"].filter(Boolean); return v.length ? `Págalo en un momento por ${v.length > 1 ? v.slice(0, -1).join(", ") + " o " + v.at(-1) : v[0]}.` : "Págalo y avísale en un toque."; })()}`, url, cuerpo, datos: c.estado === "pendiente" ? { id: c.id } : null }), { headers: cabeceras });
 }

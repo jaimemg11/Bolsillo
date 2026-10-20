@@ -121,6 +121,12 @@ export const novedad = {
 
 // ---------- Novedades: lo que trae cada versión (la más nueva arriba). Al añadir algo a la app, se apunta aquí. ----------
 export const versiones = [
+  { version: "2.6", fecha: "2026-10-20", titulo: "Préstamos entre amigos", icono: "handshake", color: "#ff9500", cambios: [
+    "Apunta lo que le dejas a un amigo (o lo que te dejan) desde el botón +, en «Préstamo».",
+    "No cuenta como gasto: es dinero que vuelve. En tu mes ves aparte «Te deben 20 € de préstamos».",
+    "Si en una semana no te lo ha devuelto, te avisamos, y se lo cobras con el enlace de Bizum en un toque.",
+    "Si tu amigo tiene Bolsillo, lo ve también desde su lado y le llegan tus toques.",
+  ] },
   { version: "2.5", fecha: "2026-10-20", titulo: "Tu semana", icono: "calendar-check", color: "#5856d6", cambios: [
     "Resumen del domingo: cada domingo por la tarde, un aviso con lo que has gastado en la semana.",
     "Te dice si has gastado más o menos que la semana anterior y en qué se te fue más.",

@@ -69,6 +69,9 @@
   .comparar.mejor { color: var(--verde); background: color-mix(in srgb, var(--verde) 14%, transparent); }
   .comparar.peor { color: var(--rojo); background: color-mix(in srgb, var(--rojo) 12%, transparent); }
   .boton-permitir { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 12px; padding: 11px 14px; border-radius: 12px; background: var(--relleno); color: var(--acento); font-size: 15px; font-weight: 600; }
+  .prestamo-total { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px 0 22px; text-align: center; }
+  .prestamo-total span { color: var(--suave); font-size: 15px; }
+  .prestamo-total b { font-size: 40px; font-weight: 700; letter-spacing: -.02em; }
   .limite-pasado { color: var(--rojo); font-weight: 600; }
   .limite-cerca { color: #ff9f0a; font-weight: 600; }
   .limite-fila .medio { flex: 1; }
@@ -230,6 +233,7 @@
   .segmento { display: grid; grid-template-columns: 1fr 1fr; background: var(--relleno); border-radius: 9px; padding: 2px; margin: 4px 0 14px; }
   .segmento button { padding: 6px; border-radius: 7px; font-size: 14px; font-weight: 500; }
   .segmento button { transition: background .2s, color .2s; }
+  #hoja-mov .segmento { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; } /* Gasto, Ingreso y Préstamo (al editar, sin Préstamo) */
   .segmento button[aria-pressed="true"] { background: var(--tarjeta); box-shadow: 0 2px 6px rgba(0, 0, 0, .12); font-weight: 600; }
   /* Gasto en rojo, ingreso en verde: que se vea de un vistazo qué estás apuntando */
   .segmento button[data-tipo="gasto"][aria-pressed="true"] { background: var(--rojo); color: #fff; }
@@ -391,7 +395,7 @@
 <section class="hoja" id="hoja-mov" role="dialog" aria-modal="true" aria-labelledby="titulo-mov" aria-hidden="true">
   <div class="asa"></div>
   <div class="hoja-cabeza"><button data-cerrar>Cancelar</button><h3 id="titulo-mov">Nuevo gasto</h3><button id="guardar-mov" disabled>Guardar</button></div>
-  <div class="segmento" role="group" aria-label="Tipo"><button data-tipo="gasto" aria-pressed="true">Gasto</button><button data-tipo="ingreso" aria-pressed="false">Ingreso</button></div>
+  <div class="segmento" role="group" aria-label="Tipo"><button data-tipo="gasto" aria-pressed="true">Gasto</button><button data-tipo="ingreso" aria-pressed="false">Ingreso</button><button data-abrir-prestamo aria-pressed="false">Préstamo</button></div>
   <div class="importe"><span class="signo" id="signo" aria-hidden="true">−</span><input id="importe" class="num" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="Importe en euros"><span>€</span></div>
   <div class="rapidos" id="rapidos" aria-label="Tus gastos habituales"></div>
   <div class="cats" id="cats" role="group" aria-label="Categoría"></div>
@@ -978,6 +982,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     nota.value = mv?.nota || "";
     fecha.value = mv?.fecha || (mesVisto === claveMes(hoyISO()) ? hoyISO() : `${mesVisto}-01`);
     $("#borrar-mov").hidden = !mv;
+    $("[data-abrir-prestamo]").hidden = Boolean(mv); // un préstamo no es un movimiento: solo al apuntar uno nuevo
     catElegida = Boolean(mv);
     $("#fila-oculto").hidden = !sync.clave; // solo tiene sentido con nube (los círculos están en ella)
     $("#mov-oculto").checked = Boolean(mv && (datos.extra.ocultos || []).includes(mv.id));

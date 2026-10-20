@@ -3,7 +3,7 @@
 import { enviarPush } from "../compartido/push.js";
 import { avisoDelDia } from "../compartido/avisos.js";
 import { cerrarSiToca, masDias } from "../compartido/duelos.js";
-import { recordarCobros } from "../compartido/cobros.js";
+import { recordarCobros, avisoPrestamo } from "../compartido/cobros.js";
 
 // Duelo que terminó ayer: se cierra y se anuncia quién ha ganado (y el pacto)
 async function avisoDuelo(env, usuario, hoy) {
@@ -28,13 +28,17 @@ async function repartir(env) {
   let enviados = 0, borrados = 0;
   for (const [usuario, lista] of Object.entries(porUsuario)) {
     const { results: movs } = await env.DB.prepare("SELECT tipo, cat, importe, nota, fecha FROM movs WHERE usuario = ?1 AND borrado = 0 AND fecha >= ?2").bind(usuario, desde).all();
-    const aviso = (await avisoDuelo(env, usuario, hoy).catch(() => null)) || avisoDelDia(movs, hoy);
+    // Lo más importante primero: un duelo que acaba de terminar, un préstamo sin devolver y después lo del día
+    const aviso = (await avisoDuelo(env, usuario, hoy).catch(() => null)) || (await avisoPrestamo(env, usuario, hoy).catch(() => null)) || avisoDelDia(movs, hoy);
     if (!aviso) continue;
+    const { marcar, ...mensaje } = aviso;
+    let llego = false;
     for (const s of lista) {
-      const estado = await enviarPush(s, aviso, env).catch(() => 0);
+      const estado = await enviarPush(s, mensaje, env).catch(() => 0);
       if (estado === 404 || estado === 410) { await env.DB.prepare("DELETE FROM push_subs WHERE endpoint = ?1").bind(s.endpoint).run(); borrados++; }
-      else if (estado >= 200 && estado < 300) { await env.DB.prepare("UPDATE push_subs SET ultimo_envio = ?2 WHERE endpoint = ?1").bind(s.endpoint, hoy).run(); enviados++; }
+      else if (estado >= 200 && estado < 300) { await env.DB.prepare("UPDATE push_subs SET ultimo_envio = ?2 WHERE endpoint = ?1").bind(s.endpoint, hoy).run(); enviados++; llego = true; }
     }
+    if (llego && marcar) await marcar(); // el recordatorio del préstamo solo cuenta si ha llegado
   }
   return { hoy, personas: Object.keys(porUsuario).length, enviados, borrados };
 }
