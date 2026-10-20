@@ -72,6 +72,7 @@
   .segmento.rango { margin: -4px 0 14px; }
   .sobres { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin-top: 14px; }
   .sobres .mini b { font-size: 16px; }
+  .sobres .mini .etiqueta { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .boton-permitir { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 12px; padding: 11px 14px; border-radius: 12px; background: var(--relleno); color: var(--acento); font-size: 15px; font-weight: 600; }
   .prestamo-total { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px 0 22px; text-align: center; }
   .prestamo-total span { color: var(--suave); font-size: 15px; }
@@ -429,6 +430,7 @@
     <div class="campo"><label for="presupuesto">Presupuesto al mes</label><input id="presupuesto" class="num" inputmode="decimal" placeholder="Sin límite" autocomplete="off"></div>
     <label class="check"><input type="checkbox" id="presupuesto-variable"> Según lo que cobro</label>
     <div class="campo" id="fila-ahorro" hidden><label for="ahorro">Ahorrar</label><select id="ahorro"></select></div>
+    <div class="campo" id="fila-hucha-ahorro" hidden><label for="hucha-ahorro">Guardarlo en</label><select id="hucha-ahorro"></select></div>
   </div>
   <p class="nota-ajuste" id="nota-variable" hidden>Cada vez que apuntes lo que cobras (como ingreso de Trabajo o Paga), Bolsillo lo reparte en tres sobres: primero la parte de tus gastos fijos, después tu ahorro, y lo que queda es tu presupuesto para gastar. Ideal si trabajas por horas.</p>
   <div class="campos" style="margin-top:10px">
@@ -825,9 +827,23 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   }
   // Con los sobres, los fijos ya tienen su parte: no se descuentan de lo que tienes para gastar
   const cuenta = (x) => !(datos.extra.variable && x.origen === "fijo");
+  // Si has elegido una hucha, lo que ahorras de cada cobro entra en ella solo. Se guarda cuánto ha entrado de cada periodo:
+  // si luego cambia lo cobrado (otro ingreso, uno borrado), solo se corrige la diferencia y nunca entra dos veces.
+  function aportarAHucha(pe, ahorro) {
+    const v = datos.extra.variable, h = (datos.extra.huchas || []).find((x) => x.id === v?.hucha);
+    if (!h) return;
+    const aportes = { ...(v.aportes || {}) }, dif = ahorro - (aportes[pe.ini] || 0);
+    if (!dif) return;
+    aportes[pe.ini] = ahorro;
+    setExtra("huchas", datos.extra.huchas.map((x) => (x.id === h.id ? { ...x, ahorrado: Math.max(0, x.ahorrado + dif) } : x)));
+    setExtra("variable", { ...v, aportes: Object.fromEntries(Object.entries(aportes).sort().slice(-26)) }); // medio año basta
+    avisar(dif > 0 ? `+${euros(dif)} a tu hucha «${h.nombre}»` : `−${euros(-dif)} de tu hucha «${h.nombre}»`);
+  }
+  const huchaDelAhorro = () => (datos.extra.huchas || []).find((x) => x.id === datos.extra.variable?.hucha);
   function ajustarPresupuestoVariable() {
     const s = sobres();
     if (!s) return;
+    aportarAHucha(periodo(), s.ahorro);
     const p = s.gastar || null; // si lo cobrado no llega ni para los fijos, no queda nada para gastar
     if (p === datos.presupuesto) return;
     Object.assign(datos, { presupuesto: p, presupuestoAct: new Date().toISOString(), presupuestoPend: true });
@@ -963,9 +979,10 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     // Según lo que cobras: los tres sobres (fijos, ahorro, para gastar) o, si aún no has apuntado lo de este periodo, un botón para hacerlo
     if (datos.extra.variable && enPeriodo) {
       const s = sobres(pe), periodoTexto = pe.semanal ? "Esta semana" : "Este mes";
-      lineas += s ? `<div class="sobres">${[["Fijos", s.fijos], ["Ahorras", s.ahorro], ["Para gastar", s.gastar]].filter(([, c], i) => c || i === 2)
+      const hucha = huchaDelAhorro();
+      lineas += s ? `<div class="sobres">${[["Fijos", s.fijos], [hucha ? `A «${esc(hucha.nombre)}»` : "Ahorras", s.ahorro], ["Para gastar", s.gastar]].filter(([, c], i) => c || i === 2)
           .map(([nombre, c]) => `<div class="mini"><span class="etiqueta">${nombre}</span><b class="num">${euros(c)}</b></div>`).join("")}</div>
-        <p class="linea-resumen" style="margin:6px 0 0;display:block">${s.faltan ? `<b class="pasado">${periodoTexto} te faltan ${euros(s.faltan)} para tus fijos</b>` : `De tus <b class="num">${euros(s.cobrado)}</b> cobrados.${s.fijos ? " Tus fijos ya tienen su sobre: no cuentan en lo gastado." : ""}`}</p>`
+        <p class="linea-resumen" style="margin:6px 0 0;display:block">${s.faltan ? `<b class="pasado">${periodoTexto} te faltan ${euros(s.faltan)} para tus fijos</b>` : `De tus <b class="num">${euros(s.cobrado)}</b> cobrados.${s.fijos ? " Tus fijos ya tienen su sobre: no cuentan en lo gastado." : ""}${hucha && s.ahorro ? ` Lo que ahorras entra solo en tu hucha «${esc(hucha.nombre)}».` : ""}`}</p>`
         : `<button class="boton-permitir" id="apuntar-cobro">${ico("wallet", "ico-texto")}¿Ya has cobrado? Apunta cuánto</button>`;
     }
     const media = diaHoy ? Math.round(gastadoR / diaHoy) : 0;
@@ -1445,20 +1462,35 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   document.querySelectorAll("[data-volver-ajustes]").forEach((b) => b.addEventListener("click", () => { cerrarHoja(); setTimeout(() => $("#abrir-ajustes").click(), 250); }));
   // Modo paga: día en que cobras
   // Según lo que cobro: casilla y cuánto ahorrar. Con ella activa, el presupuesto no se escribe a mano: lo pone lo que cobras
-  const casillaVariable = $("#presupuesto-variable"), selAhorro = $("#ahorro");
+  const casillaVariable = $("#presupuesto-variable"), selAhorro = $("#ahorro"), selHucha = $("#hucha-ahorro");
   selAhorro.innerHTML = [0, 10, 15, 20, 25, 30, 40, 50].map((n) => `<option value="${n}">${n ? `El ${n} % de lo que cobre` : "Nada"}</option>`).join("");
   function pintarVariable() {
     const v = datos.extra.variable;
     casillaVariable.checked = Boolean(v); $("#fila-ahorro").hidden = $("#nota-variable").hidden = !v;
     selAhorro.value = String(v?.ahorro ?? 20);
+    // En qué hucha va lo ahorrado (solo si ahorras algo y tienes huchas)
+    const huchas = datos.extra.huchas || [];
+    $("#fila-hucha-ahorro").hidden = !v || !v.ahorro || !huchas.length;
+    selHucha.innerHTML = `<option value="">En ninguna, solo apartarlo</option>` + huchas.map((h) => `<option value="${esc(h.id)}">Hucha «${esc(h.nombre)}»</option>`).join("");
+    selHucha.value = huchas.some((h) => h.id === v?.hucha) ? v.hucha : "";
     presupuesto.readOnly = Boolean(v);
     presupuesto.value = datos.presupuesto ? (datos.presupuesto / 100).toLocaleString("es-ES", { minimumFractionDigits: datos.presupuesto % 100 ? 2 : 0, maximumFractionDigits: 2, useGrouping: false }) : "";
     presupuesto.placeholder = v ? "Apunta lo que cobres" : "Sin límite";
   }
-  const cambiarVariable = (valor, mensaje) => { setExtra("variable", valor); ajustarPresupuestoVariable(); pintarVariable(); pintar(); avisar(mensaje); };
+  // Si al cambiarlo entra (o sale) dinero de la hucha, se queda ese aviso, que dice más
+  const cambiarVariable = (valor, mensaje) => {
+    const antes = JSON.stringify(datos.extra.huchas || []);
+    setExtra("variable", valor); ajustarPresupuestoVariable(); pintarVariable(); pintar();
+    if (JSON.stringify(datos.extra.huchas || []) === antes) avisar(mensaje);
+  };
   casillaVariable.addEventListener("change", () => cambiarVariable(casillaVariable.checked ? { ahorro: Number(selAhorro.value) || 20 } : null,
     casillaVariable.checked ? "Tu presupuesto será lo que cobres menos lo que ahorras" : "Vuelves a un presupuesto fijo"));
-  selAhorro.addEventListener("change", () => cambiarVariable({ ahorro: Number(selAhorro.value) }, Number(selAhorro.value) ? `Ahorras el ${selAhorro.value} % de lo que cobres` : "No apartas nada"));
+  selAhorro.addEventListener("change", () => cambiarVariable({ ...datos.extra.variable, ahorro: Number(selAhorro.value) }, Number(selAhorro.value) ? `Ahorras el ${selAhorro.value} % de lo que cobres` : "No apartas nada"));
+  selHucha.addEventListener("change", () => {
+    const h = (datos.extra.huchas || []).find((x) => x.id === selHucha.value);
+    // Al elegir una hucha, lo de este cobro entra ya; lo de cobros anteriores, no (ya lo tenías apartado)
+    cambiarVariable({ ...datos.extra.variable, hucha: h ? h.id : undefined, aportes: {} }, h ? `Lo que ahorres irá a tu hucha «${h.nombre}»` : "Lo que ahorres solo se aparta");
+  });
   $("#abrir-ajustes").addEventListener("click", pintarVariable);
   // «¿Ya has cobrado?»: abre el formulario como ingreso de Trabajo
   document.addEventListener("click", (e) => { if (e.target.closest("#apuntar-cobro")) { abrirMov(); ponerTipo("ingreso"); cat = "trabajo"; catElegida = true; pintarCats(); } });
