@@ -45,6 +45,7 @@
   /* Cabecera: mes */
   .cabecera { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 4px; }
   .cabecera h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -.02em; text-transform: capitalize; }
+  .cabecera h1.semana { text-transform: none; } /* «Esta semana», «8–14 oct»: solo la primera letra en mayúscula (ya viene así) */
   .flechas { display: flex; gap: 4px; align-items: center; }
   .redondo { width: 36px; height: 36px; border-radius: 50%; background: var(--relleno); display: grid; place-items: center; color: var(--acento); }
   .redondo svg { width: 18px; height: 18px; }
@@ -68,6 +69,7 @@
   .comparar b { font-weight: 600; }
   .comparar.mejor { color: var(--verde); background: color-mix(in srgb, var(--verde) 14%, transparent); }
   .comparar.peor { color: var(--rojo); background: color-mix(in srgb, var(--rojo) 12%, transparent); }
+  .segmento.rango { margin: -4px 0 14px; }
   .sobres { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin-top: 14px; }
   .sobres .mini b { font-size: 16px; }
   .boton-permitir { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 12px; padding: 11px 14px; border-radius: 12px; background: var(--relleno); color: var(--acento); font-size: 15px; font-weight: 600; }
@@ -370,6 +372,7 @@
       <button class="redondo" id="mes-despues" aria-label="Mes siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
   </div>
+  <div class="segmento rango" role="group" aria-label="Ver"><button data-rango="mes" aria-pressed="true">Mes</button><button data-rango="semana" aria-pressed="false">Semana</button></div>
   <div id="instalar"></div>
   <section class="resumen" id="resumen" aria-live="polite"></section>
   <div id="extras-mes"></div>
@@ -852,17 +855,35 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     return textoLimite(ahora - mv.importe, ahora, limite, catDe("gasto", mv.cat)[1]);
   }
 
+  // ---------- Ver el mes entero o cada semana ----------
+  // La semana empieza el día que cobras (si cobras cada semana) o el lunes. Lo elegido se recuerda en este móvil.
+  let vistaRango = (() => { try { return localStorage.getItem("bolsillo.vistaRango"); } catch { return null; } })() || (pagaSemanal() ? "semana" : "mes"), semanaVista = null;
+  const inicioSemana = (iso) => pagaSemanal() ? periodo(iso).ini : masDiasISO(iso, -((new Date(iso + "T12:00:00Z").getUTCDay() + 6) % 7));
+  const diaCorto = (iso, mes = true) => new Date(iso + "T12:00:00").toLocaleDateString("es-ES", mes ? { day: "numeric", month: "short" } : { day: "numeric" }).replace(".", "");
+  function nombreSemana(ini) {
+    const hoyIni = inicioSemana(hoyISO()), ult = masDiasISO(ini, 6);
+    if (ini === hoyIni) return "Esta semana";
+    if (ini === masDiasISO(hoyIni, -7)) return "Semana pasada";
+    return ini.slice(0, 7) === ult.slice(0, 7) ? `${diaCorto(ini, false)}–${diaCorto(ult)}` : `${diaCorto(ini)} – ${diaCorto(ult)}`;
+  }
+  // Al apuntar algo, se va al mes y a la semana de ese movimiento
+  function irAFecha(f) { mesVisto = claveMes(f); semanaVista = inicioSemana(f); }
+
   // ---------- Pintar ----------
   // «Llevas 40 € menos que en septiembre a estas alturas»: el mismo número de días del mes (de la paga o de la semana) anterior.
-  // En un mes pasado se compara el mes entero. Si el anterior no tiene gastos, no se dice nada.
-  function compararConAntes(esActual, diaHoy, gastado) {
+  // En un mes pasado se compara el mes entero. Si el anterior no tiene gastos, no se dice nada. Viendo semanas, con la semana anterior.
+  function compararConAntes(esActual, diaHoy, gastado, semanaIni) {
     // En el periodo actual se cuenta igual que el resumen (con los sobres, sin los fijos)
     const sumar = (desde, hasta) => vivos().filter((x) => x.tipo === "gasto" && x.fecha >= desde && x.fecha < hasta && (!esActual || cuenta(x))).reduce((s, x) => s + x.importe, 0);
     const iso = (d) => d.toLocaleDateString("sv-SE");
     const [a, m] = mesVisto.split("-").map(Number);
     let antes, nombre, desdeAntes, finAntes;
     const pe = periodo();
-    if (esActual && pe.paga) {
+    if (semanaIni && !(esActual && pe.semanal)) {
+      desdeAntes = masDiasISO(semanaIni, -7); finAntes = masDiasISO(desdeAntes, esActual ? diaHoy : 7);
+      if (!sumar(desdeAntes, semanaIni)) return "";
+      antes = sumar(desdeAntes, finAntes); nombre = esActual ? "que la semana pasada a estas alturas" : "que la semana anterior";
+    } else if (esActual && pe.paga && (semanaIni ? pe.semanal : !pe.semanal)) {
       // El periodo anterior es el que contiene la víspera de este; se cuentan los mismos días que llevas en el actual
       const previo = periodo(masDiasISO(pe.ini, -1));
       desdeAntes = previo.ini; finAntes = [masDiasISO(previo.ini, pe.diaHoy), pe.ini].sort()[0];
@@ -883,23 +904,38 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
 
   function pintar() {
     ajustarPresupuestoVariable();
-    const actual = claveMes(hoyISO()), esActual = mesVisto === actual;
+    const semana = vistaRango === "semana", hoyIni = inicioSemana(hoyISO());
+    if (semana && (!semanaVista || semanaVista > hoyIni)) semanaVista = hoyIni;
+    if (semana) mesVisto = claveMes(semanaVista);
+    const actual = claveMes(hoyISO()), esActual = semana ? semanaVista === hoyIni : mesVisto === actual;
     const anio = mesVisto.slice(0, 4);
-    $("#mes").textContent = nombreMes(mesVisto) + (anio !== actual.slice(0, 4) ? ` ${anio}` : "");
-    $("#mes-despues").disabled = mesVisto >= actual;
+    $("#mes").textContent = semana ? nombreSemana(semanaVista) : nombreMes(mesVisto) + (anio !== actual.slice(0, 4) ? ` ${anio}` : "");
+    $("#mes").classList.toggle("semana", semana);
+    $("#mes-despues").disabled = esActual;
+    $("#mes-antes").setAttribute("aria-label", semana ? "Semana anterior" : "Mes anterior"); $("#mes-despues").setAttribute("aria-label", semana ? "Semana siguiente" : "Mes siguiente");
+    document.querySelectorAll("[data-rango]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.rango === vistaRango)));
 
-    const movs = vivos().filter((m) => claveMes(m.fecha) === mesVisto);
+    const finSemana = semana ? masDiasISO(semanaVista, 7) : "";
+    const movs = vivos().filter((m) => semana ? m.fecha >= semanaVista && m.fecha < finSemana : claveMes(m.fecha) === mesVisto);
     const gastos = movs.filter((m) => m.tipo === "gasto"), ingresos = movs.filter((m) => m.tipo === "ingreso");
     const gastado = gastos.reduce((s, m) => s + m.importe, 0), ingresado = ingresos.reduce((s, m) => s + m.importe, 0);
-    // Con paga semanal, el presupuesto es de la semana: un mes pasado se compara con su equivalente mensual
-    const p = esActual ? datos.presupuesto : presupuestoMes();
+    // El presupuesto de lo que se ve: el de la semana o el del mes (si cobras cada semana, el mes es su equivalente, y al revés)
+    const p = semana ? presupuestoSemana() : presupuestoMes();
 
-    // Resumen: del mes o, si cobras otro día (modo paga), de paga a paga o de semana a semana
+    // Resumen: del mes o de la semana. Si lo que ves es tu periodo de cobro actual (de paga a paga o de jueves a jueves), se cuenta desde que cobraste
     const [a, m] = mesVisto.split("-").map(Number), diasMes = new Date(a, m, 0).getDate();
     const pe = periodo();
-    let gastadoR = esActual ? gastos.filter(cuenta).reduce((s, x) => s + x.importe, 0) : gastado, ingresadoR = ingresado, diaHoy = esActual ? new Date().getDate() : diasMes, quedanDias = esActual ? diasMes - diaHoy + 1 : 0;
-    let etiqueta = esActual ? "Gastado este mes" : "Gastado en " + nombreMes(mesVisto), hasta = "para fin de mes";
-    if (esActual && pe.paga) {
+    const usaPeriodo = esActual && pe.paga && (semana ? pe.semanal : !pe.semanal);
+    const enPeriodo = usaPeriodo || (esActual && !pe.paga && !semana); // lo que ves es el periodo de tu presupuesto (para sobres y límites)
+    let gastadoR = esActual ? gastos.filter(cuenta).reduce((s, x) => s + x.importe, 0) : gastado, ingresadoR = ingresado, diaHoy, quedanDias, etiqueta, hasta;
+    if (semana) {
+      diaHoy = esActual ? Math.round((Date.parse(hoyISO()) - Date.parse(semanaVista)) / 864e5) + 1 : 7; quedanDias = esActual ? 8 - diaHoy : 0;
+      etiqueta = esActual ? "Gastado esta semana" : `Gastado del ${diaCorto(semanaVista, false)} al ${diaCorto(masDiasISO(semanaVista, 6))}`; hasta = "para acabar la semana";
+    } else {
+      diaHoy = esActual ? new Date().getDate() : diasMes; quedanDias = esActual ? diasMes - diaHoy + 1 : 0;
+      etiqueta = esActual ? "Gastado este mes" : "Gastado en " + nombreMes(mesVisto); hasta = "para fin de mes";
+    }
+    if (usaPeriodo) {
       const delPeriodo = vivos().filter((x) => x.fecha >= pe.ini && x.fecha < pe.fin);
       gastadoR = delPeriodo.filter((x) => x.tipo === "gasto" && cuenta(x)).reduce((s, x) => s + x.importe, 0);
       ingresadoR = delPeriodo.filter((x) => x.tipo === "ingreso").reduce((s, x) => s + x.importe, 0);
@@ -913,10 +949,10 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
       barra = `<div class="barra" role="img" aria-label="${Math.round(pct)} % del presupuesto"><i style="width:${pct}%;background:${color}"></i></div>`;
       lineas = `<div class="linea-resumen"><span>${queda >= 0 ? `Te quedan <b class="num">${euros(queda)}</b>` : `<b class="num pasado">Te has pasado ${euros(-queda)}</b>`}</span><span class="num">de ${euros(p, conCentimos(p))}</span></div>`;
       // Una sola frase que se adapta al ancho (dos columnas se partían en cuatro trozos en un móvil)
-      if (esActual && queda > 0) lineas += `<p class="linea-resumen" style="margin:6px 0 0;display:block">Puedes gastar <b class="num">${euros(Math.floor(queda / quedanDias))}</b> al día ${hasta === "hasta tu paga" ? `hasta tu paga (${quedanDias} día${quedanDias === 1 ? "" : "s"})` : `durante ${quedanDias === 1 ? "hoy, último día del mes" : `${quedanDias} días`}`}</p>`;
-    } else if (esActual && pe.paga) lineas = `<div class="linea-resumen" style="margin-top:10px"><span>${quedanDias} día${quedanDias === 1 ? "" : "s"} ${hasta}</span></div>`;
+      if (esActual && queda > 0) lineas += `<p class="linea-resumen" style="margin:6px 0 0;display:block">Puedes gastar <b class="num">${euros(Math.floor(queda / quedanDias))}</b> al día ${hasta === "hasta tu paga" ? `hasta tu paga (${quedanDias} día${quedanDias === 1 ? "" : "s"})` : `durante ${quedanDias === 1 ? `hoy, último día ${semana ? "de la semana" : "del mes"}` : `${quedanDias} días`}`}</p>`;
+    } else if (usaPeriodo) lineas = `<div class="linea-resumen" style="margin-top:10px"><span>${quedanDias} día${quedanDias === 1 ? "" : "s"} ${hasta}</span></div>`;
     // Según lo que cobras: los tres sobres (fijos, ahorro, para gastar) o, si aún no has apuntado lo de este periodo, un botón para hacerlo
-    if (datos.extra.variable && esActual) {
+    if (datos.extra.variable && enPeriodo) {
       const s = sobres(pe), periodoTexto = pe.semanal ? "Esta semana" : "Este mes";
       lineas += s ? `<div class="sobres">${[["Fijos", s.fijos], ["Ahorras", s.ahorro], ["Para gastar", s.gastar]].filter(([, c], i) => c || i === 2)
           .map(([nombre, c]) => `<div class="mini"><span class="etiqueta">${nombre}</span><b class="num">${euros(c)}</b></div>`).join("")}</div>
@@ -924,7 +960,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
         : `<button class="boton-permitir" id="apuntar-cobro">${ico("wallet", "ico-texto")}¿Ya has cobrado? Apunta cuánto</button>`;
     }
     const media = diaHoy ? Math.round(gastadoR / diaHoy) : 0;
-    const comparacion = compararConAntes(esActual, diaHoy, gastadoR);
+    const comparacion = compararConAntes(esActual, diaHoy, gastadoR, semana ? semanaVista : null);
     const [ent, dec] = euros(gastadoR).replace(" €", "").split(",");
     $("#resumen").innerHTML = `<div class="etiqueta">${etiqueta}</div>
       <div class="total num">${ent}<small>,${dec} €</small></div>${comparacion}${barra}${lineas}
@@ -939,7 +975,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     const mayor = filasCat[0]?.[1] || 1;
     if (filtroCat && !porCat[filtroCat]) filtroCat = null; // al cambiar de mes, si esa categoría no tiene gastos
     // Con límite (solo en el periodo actual): la barra mide cuánto llevas de tu límite, y cambia de color al acercarte o pasarte
-    const limites = esActual ? datos.extra.limites || {} : {};
+    const limites = enPeriodo ? datos.extra.limites || {} : {};
     $("#categorias").innerHTML = filasCat.length ? `<h2>En qué se va</h2><div class="grupo">${filasCat.map(([id, total]) => {
       const [, nombre, icono, color] = catDe("gasto", id), n = gastos.filter((g) => g.cat === id).length, limite = limites[id];
       let sub = `${n} gasto${n === 1 ? "" : "s"} · ${Math.round((total / gastado) * 100)} %`, ancho = (total / mayor) * 100, colorBarra = color;
@@ -951,13 +987,19 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
       }
       return `<button class="fila ${filtroCat === id ? "elegida" : ""}" data-filtro-cat="${id}" aria-pressed="${filtroCat === id}"><div class="icono" style="--c:${color}">${ico(icono)}</div><div class="medio"><div style="display:flex;justify-content:space-between;gap:8px"><span class="titulo">${nombre}</span><span class="cifra num">${euros(total)}</span></div>
         <div class="sub">${sub}</div><div class="cat-barra"><i style="width:${ancho}%;background:${colorBarra}"></i></div></div></button>`;
-    }).join("")}</div><p class="nota-ajuste">Toca una categoría para ver solo sus gastos.${esActual && !Object.keys(limites).length ? ` <button class="enlace" id="poner-limites">Ponle un límite a alguna</button>` : ""}</p>` : "";
+    }).join("")}</div><p class="nota-ajuste">Toca una categoría para ver solo sus gastos.${enPeriodo && !Object.keys(limites).length ? ` <button class="enlace" id="poner-limites">Ponle un límite a alguna</button>` : ""}</p>` : "";
 
-    // Últimos 6 meses
+    // Últimas 6 semanas o últimos 6 meses
+    if (semana) {
+      const inis = Array.from({ length: 6 }, (_, i) => masDiasISO(hoyIni, (i - 5) * 7));
+      const totS = inis.map((ini) => vivos().filter((x) => x.tipo === "gasto" && x.fecha >= ini && x.fecha < masDiasISO(ini, 7)).reduce((s, x) => s + x.importe, 0)), topeS = Math.max(...totS, 1);
+      $("#historico").innerHTML = vivos().length ? `<h2>Últimas semanas</h2><div class="grupo"><div class="meses">${inis.map((ini, i) =>
+        `<button class="${ini === semanaVista ? "actual" : ""}" data-semana="${ini}" aria-label="${nombreSemana(ini)}: ${euros(totS[i])}"><span class="num" style="font-size:11px">${totS[i] ? Math.round(totS[i] / 100) + " €" : ""}</span><i style="height:${Math.max(4, (totS[i] / topeS) * 70)}px"></i>${diaCorto(ini)}</button>`).join("")}</div></div>` : "";
+    }
     const claves = Array.from({ length: 6 }, (_, i) => moverMes(actual, i - 5));
     const totales = claves.map((k) => vivos().filter((x) => x.tipo === "gasto" && claveMes(x.fecha) === k).reduce((s, x) => s + x.importe, 0));
     const tope = Math.max(...totales, 1);
-    $("#historico").innerHTML = vivos().length ? `<h2>Últimos meses</h2><div class="grupo"><div class="meses">${claves.map((k, i) =>
+    if (!semana) $("#historico").innerHTML = vivos().length ? `<h2>Últimos meses</h2><div class="grupo"><div class="meses">${claves.map((k, i) =>
       `<button class="${k === mesVisto ? "actual" : ""}" data-mes="${k}" aria-label="${nombreMes(k)}: ${euros(totales[i])}"><span class="num" style="font-size:11px">${totales[i] ? Math.round(totales[i] / 100) + " €" : ""}</span><i style="height:${Math.max(4, (totales[i] / tope) * 70)}px"></i>${nombreMes(k, true)}</button>`).join("")}</div></div>` : "";
 
     // Movimientos por día: los del mes, los de una categoría o, si buscas, los de todos los meses
@@ -985,7 +1027,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
         return `<div class="desliza"><button class="fila" data-editar="${mv.id}"><div class="icono" style="--c:${color}">${ico(icono)}</div><div class="medio"><div class="titulo">${esc(mv.nota || nombre)}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>
           <div class="cifra num ${mv.tipo === "ingreso" ? "ingreso" : ""}">${mv.tipo === "ingreso" ? "+" : "−"}${euros(mv.importe)}</div></button></div>`;
       }).join("")}</div>`;
-    }).join("") : q ? `${cabecera}<div class="vacio">Nada con «${esc(busqueda.trim())}».</div>` : `<div class="vacio"><b>${esActual ? "Aún no hay gastos este mes" : "Nada en " + nombreMes(mesVisto)}</b>${esActual ? "Pulsa el + cada vez que gastes algo. Tarda dos segundos." : ""}</div>`;
+    }).join("") : q ? `${cabecera}<div class="vacio">Nada con «${esc(busqueda.trim())}».</div>` : `<div class="vacio"><b>${semana ? (esActual ? "Aún no hay gastos esta semana" : "Nada esa semana") : esActual ? "Aún no hay gastos este mes" : "Nada en " + nombreMes(mesVisto)}</b>${esActual ? "Pulsa el + cada vez que gastes algo. Tarda dos segundos." : ""}</div>`;
     alPintar.forEach((f) => { try { f(); } catch (e) { console.error(e); } }); // extras: racha, retos, insignias, cobros fijos
   }
   const alPintar = [], alCambiarVista = [], alSincronizar = [];
@@ -1035,7 +1077,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     ponerTipo(mv ? mv.tipo : "gasto");
     importe.value = mv ? (mv.importe / 100).toLocaleString("es-ES", { maximumFractionDigits: 2, useGrouping: false }) : "";
     nota.value = mv?.nota || "";
-    fecha.value = mv?.fecha || (mesVisto === claveMes(hoyISO()) ? hoyISO() : `${mesVisto}-01`);
+    fecha.value = mv?.fecha || (vistaRango === "semana" && semanaVista && semanaVista !== inicioSemana(hoyISO()) ? semanaVista : mesVisto === claveMes(hoyISO()) ? hoyISO() : `${mesVisto}-01`);
     $("#borrar-mov").hidden = !mv;
     $("[data-abrir-prestamo]").hidden = Boolean(mv); // un préstamo no es un movimiento: solo al apuntar uno nuevo
     catElegida = Boolean(mv);
@@ -1083,7 +1125,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     const base = datos.movs.find((x) => x.id === b.dataset.rapido); if (!base) return;
     const mv = tocado({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo: "gasto", cat: base.cat, importe: base.importe, nota: base.nota, fecha: hoyISO(), creado: new Date().toISOString(), origen: "app" });
     datos.movs.push(mv); guardar(); sincronizar();
-    mesVisto = claveMes(mv.fecha); cerrarHoja(); pintar();
+    irAFecha(mv.fecha); cerrarHoja(); pintar();
     if (navigator.vibrate) navigator.vibrate(10);
     avisar(avisoLimite(mv) || `−${euros(mv.importe)} · ${mv.nota}`, { texto: "Deshacer", fn: () => borrarMov(mv.id, true) });
   });
@@ -1102,7 +1144,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     const ocultos = datos.extra.ocultos || [], oculto = sync.clave && $("#mov-oculto").checked;
     if (oculto !== ocultos.includes(mv.id)) setExtra("ocultos", oculto ? [...ocultos, mv.id].slice(-500) : ocultos.filter((x) => x !== mv.id));
     guardar(); sincronizar();
-    mesVisto = claveMes(mv.fecha);
+    irAFecha(mv.fecha);
     cerrarHoja(); pintar();
     avisar(editando ? "Cambios guardados" : avisoLimite(mv) || `${tipo === "gasto" ? "−" : "+"}${euros(c)} · ${catDe(tipo, cat)[1]}`);
     if (navigator.vibrate) navigator.vibrate(10);
@@ -1158,9 +1200,21 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   });
   let tBusqueda;
   $("#buscar").addEventListener("input", (e) => { clearTimeout(tBusqueda); tBusqueda = setTimeout(() => { busqueda = e.target.value; pintar(); }, 150); });
-  $("#historico").addEventListener("click", (e) => { const b = e.target.closest("[data-mes]"); if (b) { mesVisto = b.dataset.mes; pintar(); } });
-  $("#mes-antes").addEventListener("click", () => { mesVisto = moverMes(mesVisto, -1); pintar(); });
-  $("#mes-despues").addEventListener("click", () => { mesVisto = moverMes(mesVisto, 1); pintar(); });
+  $("#historico").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-mes]"), s = e.target.closest("[data-semana]");
+    if (b) { mesVisto = b.dataset.mes; pintar(); } else if (s) { semanaVista = s.dataset.semana; pintar(); }
+  });
+  const moverVista = (n) => { if (vistaRango === "semana") semanaVista = masDiasISO(semanaVista || inicioSemana(hoyISO()), n * 7); else mesVisto = moverMes(mesVisto, n); filtroCat = null; pintar(); };
+  $("#mes-antes").addEventListener("click", () => moverVista(-1));
+  $("#mes-despues").addEventListener("click", () => moverVista(1));
+  // Mes o semana: al pasar a semanas desde un mes pasado, se abre su última semana
+  document.querySelectorAll("[data-rango]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.rango === vistaRango) return;
+    vistaRango = b.dataset.rango;
+    try { localStorage.setItem("bolsillo.vistaRango", vistaRango); } catch {}
+    if (vistaRango === "semana") semanaVista = mesVisto === claveMes(hoyISO()) ? null : inicioSemana(masDiasISO(moverMes(mesVisto, 1) + "-01", -1));
+    filtroCat = null; pintar();
+  }));
 
   // ---------- Ajustes ----------
   const presupuesto = $("#presupuesto");
