@@ -22,7 +22,7 @@ import { marcador, cerrarSiToca, hoyMadrid as hoyDuelo, masDias, diasEntre, DURA
 const TIPOS = { gasto: ["comida", "super", "transporte", "ocio", "ropa", "subs", "estudios", "otros"], ingreso: ["paga", "trabajo", "ventas", "regalo", "devolucion"] };
 const NOMBRES = { comida: "Comida", super: "Súper", transporte: "Transporte", ocio: "Ocio", ropa: "Ropa", subs: "Suscripciones", estudios: "Estudios", otros: "Otros", devolucion: "Devolución", paga: "Paga", trabajo: "Trabajo", ventas: "Ventas", regalo: "Regalo" };
 const MAX_MOVS = 50_000; // por persona: años de gastos
-const AJUSTES = ["paga", "huchas", "retos", "insignias", "ocultos", "tema", "fijos", "limites"]; // ocultos: ids de gastos que no se enseñan en los círculos // lo que se guarda además de los movimientos y el presupuesto
+const AJUSTES = ["paga", "huchas", "retos", "insignias", "ocultos", "tema", "fijos", "limites", "variable"]; // ocultos: ids de gastos que no se enseñan en los círculos // lo que se guarda además de los movimientos y el presupuesto
 const REGISTROS_POR_HORA = 5; // nubes nuevas por IP y hora (evita que alguien llene la base)
 
 // Categoría según la tienda (lo que pone el datáfono). Se mira en orden: lo más concreto primero.

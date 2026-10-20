@@ -49,9 +49,20 @@ export function resumenSemana(movs, hoy) {
   return { titulo: `Tu semana: ${euros(total)}`, cuerpo: `${comparacion}Lo que más: ${NOMBRES[cat] || "Otros"} (${euros(mas)}).`, etiqueta: "semana" };
 }
 
-export function avisoDelDia(movs, hoy) {
+// Quien tiene el presupuesto «según lo que cobro»: el día que cobra, si aún no ha apuntado lo cobrado, se lo recuerda
+export function recordarCobro(movs, hoy, { paga, variable } = {}) {
+  if (!variable || !paga) return null;
+  const [a, m, d] = hoy.split("-").map(Number), ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+  const esHoy = Number.isInteger(paga.semana) ? new Date(hoy + "T12:00:00Z").getUTCDay() === paga.semana : Number(paga.dia) > 1 && d === Math.min(Number(paga.dia), ultimo);
+  if (!esHoy || movs.some((x) => x.tipo === "ingreso" && (x.cat === "trabajo" || x.cat === "paga") && x.fecha === hoy)) return null;
+  return { titulo: "¿Ya has cobrado?", cuerpo: `Apunta cuánto te han pagado hoy y tu presupuesto ${Number.isInteger(paga.semana) ? "de la semana" : "del mes"} se ajusta solo.`, etiqueta: "cobro" };
+}
+
+export function avisoDelDia(movs, hoy, ajustes = {}) {
   const renueva = suscripciones(movs, hoy).find((s) => s.faltan === 1);
   if (renueva) return { titulo: `Mañana se renueva ${renueva.nombre}`, cuerpo: `${euros(renueva.importe)}. ¿La sigues usando? Si no, aún estás a tiempo de darte de baja.`, etiqueta: "renovacion" };
+  const cobro = recordarCobro(movs, hoy, ajustes);
+  if (cobro) return cobro;
   if (hoy.endsWith("-01")) {
     const k = masDias(hoy, -1).slice(0, 7), n = movs.filter((m) => m.tipo === "gasto" && m.fecha.startsWith(k)).length;
     const mes = new Date(k + "-15T12:00:00Z").toLocaleDateString("es-ES", { month: "long" });

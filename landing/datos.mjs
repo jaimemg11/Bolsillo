@@ -121,6 +121,18 @@ export const novedad = {
 
 // ---------- Novedades: lo que trae cada versión (la más nueva arriba). Al añadir algo a la app, se apunta aquí. ----------
 export const versiones = [
+  { version: "2.9", fecha: "2026-10-20", titulo: "Tus tres sobres", icono: "wallet", color: "#5856d6", cambios: [
+    "Con el presupuesto «Según lo que cobro», lo que cobras se reparte en tres sobres: tus fijos, tu ahorro y lo que puedes gastar.",
+    "Primero se aparta la parte de tus gastos fijos (el grado, el ordenador…), después tu ahorro, y lo que queda es para gastar.",
+    "Cuando se cobra un fijo, no te descuenta de lo que tienes para gastar: ya tenía su sobre.",
+    "Si una semana lo que cobras no llega para tus fijos, te dice cuánto te falta.",
+  ] },
+  { version: "2.8", fecha: "2026-10-20", titulo: "Si trabajas por horas", icono: "wallet", color: "#007aff", cambios: [
+    "Nuevo en Ajustes: presupuesto «Según lo que cobro». Apuntas lo que te han pagado y tu presupuesto es eso menos lo que quieras ahorrar.",
+    "Si una semana cobras menos, el presupuesto baja solo; si cobras más, sube.",
+    "Eliges cuánto apartar (10 %, 20 %…) y en el resumen ves cuánto llevas ahorrado de lo cobrado.",
+    "El día que cobras, si aún no lo has apuntado, te lo recordamos.",
+  ] },
   { version: "2.7", fecha: "2026-10-20", titulo: "Si cobras cada semana", icono: "calendar-check", color: "#28a745", cambios: [
     "En Ajustes → Cobro ya puedes elegir «Cada jueves» (o el día de la semana que cobres).",
     "Las cuentas van de jueves a jueves: cuánto llevas, cuánto te queda y cuánto puedes gastar al día hasta que cobres.",

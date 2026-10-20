@@ -1283,6 +1283,8 @@
   }
   async function permitir() {
     let p = B.datos.presupuesto;
+    const variable = Boolean(B.datos.extra.variable);
+    if (!p && variable && B.sobres()) return avisar("Lo que has cobrado no llega ni para tus fijos: no queda nada para gastar");
     if (!p) {
       const semanal = B.pagaSemanal();
       const r = await B.dialogo({ titulo: "Primero, tu presupuesto", texto: `Para saber si te lo puedes permitir necesito saber cuánto quieres gastar como mucho ${semanal ? "a la semana" : "al mes"}.`, campos: [{ id: "p", etiqueta: semanal ? "A la semana" : "Al mes", placeholder: semanal ? "60" : "250", decimal: true, max: 9 }], boton: "Seguir" });
@@ -1296,7 +1298,8 @@
     if (!r) return;
     const precio = B.aCentimos(r.precio);
     if (!precio) return avisar("Escribe cuánto cuesta");
-    const que = r.que.slice(0, 40), pe = B.periodo(), fijos = await fijosPendientes(pe);
+    // Con los sobres, los fijos ya tienen su parte apartada: no se vuelven a restar
+    const que = r.que.slice(0, 40), pe = B.periodo(), fijos = variable ? { total: 0, nombres: [] } : await fijosPendientes(pe);
     const queda = p - B.gastoPeriodo(pe) - fijos.total - precio, dias = pe.quedanDias, normal = Math.floor(p / pe.largo);
     const notaFijos = fijos.total ? ` Ya cuento ${euros(fijos.total)} de fijos que te faltan (${fijos.nombres.slice(0, 2).join(", ")}${fijos.nombres.length > 2 ? "…" : ""}).` : "";
     const hasta = pe.semanal ? `hasta el ${pe.nombreDia}` : pe.paga ? "hasta tu paga" : "hasta fin de mes";
@@ -1313,13 +1316,14 @@
       return;
     }
     // No llega: si cabe en el próximo periodo (con sus fijos), desde cuándo; si ni con uno entero, cuánto apartar cada periodo
-    const siguiente = B.periodo(pe.fin), libre = p - (await fijosPendientes(siguiente)).total;
+    // Con los sobres no se sabe cuánto cobrarás: se supone que lo mismo que ahora
+    const siguiente = B.periodo(pe.fin), libre = variable ? p : p - (await fijosPendientes(siguiente)).total;
     const cuando = new Date(pe.fin + "T12:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "long" });
     const unidad = pe.semanal ? ["semana", "semanas", "a la semana", "una semana entera"] : ["mes", "meses", "al mes", "un mes entero"];
     let titulo, texto;
     if (precio <= libre) {
       titulo = pe.semanal ? "Esta semana no te llega" : "Este mes no te llega";
-      texto = `Te faltan ${euros(-queda)} ${hasta}.${notaFijos} A partir del ${pe.semanal ? `${pe.nombreDia}, ${cuando}` : cuando} (en ${dias === 1 ? "1 día" : `${dias} días`}) sí podrás, y te quedarían ${euros(libre - precio)} para ${pe.semanal ? "esa semana" : pe.paga ? "esa paga" : "ese mes"}.`;
+      texto = `Te faltan ${euros(-queda)} ${hasta}.${notaFijos} ${variable ? "Si cobras lo mismo, a" : "A"} partir del ${pe.semanal ? `${pe.nombreDia}, ${cuando}` : cuando} (en ${dias === 1 ? "1 día" : `${dias} días`}) sí podrás, y te quedarían ${euros(libre - precio)} para ${pe.semanal ? "esa semana" : pe.paga ? "esa paga" : "ese mes"}.`;
     } else {
       const aparta = Math.max(pe.semanal ? 200 : 500, Math.ceil((libre * 0.2) / 100) * 100), veces = Math.ceil(precio / aparta);
       titulo = "Mejor ahorra para ello";

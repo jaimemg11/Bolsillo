@@ -29,7 +29,10 @@ async function repartir(env) {
   for (const [usuario, lista] of Object.entries(porUsuario)) {
     const { results: movs } = await env.DB.prepare("SELECT tipo, cat, importe, nota, fecha FROM movs WHERE usuario = ?1 AND borrado = 0 AND fecha >= ?2").bind(usuario, desde).all();
     // Lo más importante primero: un duelo que acaba de terminar, un préstamo sin devolver y después lo del día
-    const aviso = (await avisoDuelo(env, usuario, hoy).catch(() => null)) || (await avisoPrestamo(env, usuario, hoy).catch(() => null)) || avisoDelDia(movs, hoy);
+    // Cuándo cobra y si tiene el presupuesto «según lo que cobro» (para recordarle apuntar lo cobrado ese día)
+    const { results: filas } = await env.DB.prepare("SELECT clave, valor FROM ajustes WHERE usuario = ?1 AND clave IN ('paga', 'variable')").bind(usuario).all();
+    const ajustes = Object.fromEntries(filas.map((f) => { try { return [f.clave, JSON.parse(f.valor)]; } catch { return [f.clave, null]; } }));
+    const aviso = (await avisoDuelo(env, usuario, hoy).catch(() => null)) || (await avisoPrestamo(env, usuario, hoy).catch(() => null)) || avisoDelDia(movs, hoy, ajustes);
     if (!aviso) continue;
     const { marcar, ...mensaje } = aviso;
     let llego = false;
