@@ -1,5 +1,5 @@
 // Bolsillo funciona sin conexión: primero se sirve lo guardado y por detrás se actualiza para la próxima vez
-const CACHE = "bolsillo-v64"; // súbelo en cada cambio de la app
+const CACHE = "bolsillo-v65"; // súbelo en cada cambio de la app
 const ARCHIVOS = ["./", "index.html", "iconos.js", "extras.js", "fijos.js", "manifest.webmanifest", "icono-180.png", "icono-192.png", "icono-512.png"];
 
 // cache: "reload" → la versión nueva se baja del servidor, no de la caché del navegador
