@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { instalar, sitio, seo, hero, problema, funciones, categorias, categoriasTexto, pasos, frase, capturas, privacidad, faq, novedad, versiones, enCamino } from "./datos.mjs";
+import { instalar, sitio, seo, capturas, faq, versiones, enCamino, cartel } from "./datos.mjs";
 import { IDEAS } from "../compartido/ideas.js";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), PUBLIC = path.join(AQUI, "..", "public");
@@ -22,7 +22,7 @@ const cabeza = ({ titulo, descripcion, url, indexar = true, extra = "" }) => `<!
 <title>${esc(titulo)}</title>
 <meta name="description" content="${esc(descripcion)}">
 ${indexar ? `<link rel="canonical" href="${url}">` : '<meta name="robots" content="noindex">'}
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/icono-192.png">
 <link rel="apple-touch-icon" href="/icono-180.png">
 <meta property="og:type" content="website">
@@ -36,165 +36,116 @@ ${indexar ? `<link rel="canonical" href="${url}">` : '<meta name="robots" conten
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="${sitio.urlLanding}img/og.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/conoce/estilos.css">
 ${extra}</head>`;
 
-const enlacesNav = [["/conoce/#instalar", "Instalar"], ["/conoce/#como-funciona", "Cómo funciona"], ["/conoce/#funciones", "Funciones"], [`/conoce/#${novedad.id}`, novedad.menu], ["/conoce/#preguntas", "Preguntas"], ["/novedades/", "Novedades"]];
+// Barra de arriba: el nombre a la izquierda, tres enlaces y «Abrir app» a la derecha (en el móvil, solo el nombre y el botón)
+const enlacesNav = [["/conoce/#funciones", "Qué hace"], ["/conoce/#preguntas", "Preguntas"], ["/conoce/#instalar", "Instalar"]];
 const nav = () => `<a class="saltar" href="#contenido">Saltar al contenido</a>
 <header class="nav-caja">
   <nav class="nav" aria-label="Principal">
     <a class="nav__marca" href="/conoce/"><img src="/icono-192.png" alt="" width="28" height="28"><span>Bolsillo</span></a>
-    <ul class="nav__enlaces" role="list">${enlacesNav.map(([h, t]) => `<li><a class="nav__enlace" href="${h}" ${h.includes("#") ? `data-espia="${h.split("#")[1]}"` : ""}>${t}</a></li>`).join("")}</ul>
-    <a class="boton boton--peque nav__cta" href="${sitio.urlApp}">${sitio.ctaCorto}</a>
-    <button class="nav__menu" type="button" aria-expanded="false" aria-controls="menu" aria-label="Abrir menú"><span></span><span></span></button>
+    <ul class="nav__enlaces" role="list">${enlacesNav.map(([h, t]) => `<li><a class="nav__enlace" href="${h}" data-espia="${h.split("#")[1]}">${t}</a></li>`).join("")}</ul>
+    <a class="nav__abrir" href="${sitio.urlApp}">${sitio.ctaCorto}</a>
   </nav>
-  <div class="menu" id="menu" hidden>
-    <ul role="list">${enlacesNav.map(([h, t], i) => `<li style="--i:${i}"><a class="menu__enlace" href="${h}">${t}</a></li>`).join("")}
-      <li style="--i:${enlacesNav.length}"><a class="boton boton--grande" href="${sitio.urlApp}">${sitio.cta}${icono("arrow-right")}</a></li></ul>
-  </div>
 </header>`;
 
+// El pie es una despedida: el correo en grande, para escribir con una idea o un fallo
+const [usuarioCorreo, dominioCorreo] = sitio.email.split("@");
 const pie = () => `<footer class="pie">
   <div class="contenedor pie__dentro">
-    <div class="pie__marca"><img src="/icono-192.png" alt="" width="32" height="32"><div><b>Bolsillo</b><span>Tus gastos del mes, sin líos.</span></div></div>
-    <nav aria-label="Legal"><ul role="list" class="pie__enlaces">
-      <li><a href="${sitio.urlApp}">Abrir la app</a></li><li><a href="/novedades/">Novedades</a></li><li><a href="https://github.com/jaimemg11/Bolsillo" rel="noopener">Código en GitHub</a></li><li><a href="/privacidad/">Privacidad</a></li><li><a href="/aviso-legal/">Aviso legal</a></li></ul></nav>
-    <p class="pie__nota">Apple Pay es una marca de Apple Inc. y Google Wallet, de Google LLC. Bolsillo no está afiliado a ellas.</p>
+    <div class="pie__arriba"><p><b>Bolsillo</b> · La app de gastos para estudiantes. Hecha en ${esc(sitio.ciudad)}.</p><a class="pie__subir" href="#contenido">Volver arriba</a></div>
+    <div class="pie__contacto"><p>¿Una idea o un fallo? Escríbeme:</p><a class="pie__correo" href="mailto:${sitio.email}"><span>${esc(usuarioCorreo)}</span><span>@${esc(dominioCorreo)}</span></a></div>
+    <div class="pie__meta">
+      <ul role="list" class="pie__enlaces"><li><a href="${sitio.urlApp}">Abrir la app</a></li><li><a href="/novedades/">Novedades</a></li><li><a href="https://github.com/jaimemg11/Bolsillo" rel="noopener">Código</a></li><li><a href="/privacidad/">Privacidad</a></li><li><a href="/aviso-legal/">Aviso legal</a></li></ul>
+      <p class="pie__nota">Apple Pay es una marca de Apple Inc. y Google Wallet, de Google LLC. Bolsillo no está afiliado a ellas.</p>
+      <p class="pie__lugar">${esc(sitio.ciudad)}, ${new Date().getFullYear()}</p>
+    </div>
   </div>
 </footer>`;
 
 // Marco de iPhone: biselado, botones laterales e isla dinámica; la captura ya trae la barra de estado
 const telefono = (img, alt, carga = "lazy") => `<div class="telefono"><div class="telefono__marco"><span class="telefono__isla" aria-hidden="true"></span><img src="/conoce/img/${img}" alt="${esc(alt)}" width="1170" height="2532" loading="${carga}" decoding="async"></div></div>`;
 
-// ---------- Landing ----------
+// ---------- Landing «cartel»: la vida de un estudiante, en carteles de colores (dirección «Loud and flat» de taste-skill) ----------
+// Lo que se pregunta en la landing (y lo que se le dice a Google que se pregunta): las de cartel.preguntas, en ese orden
+const preguntas = cartel.preguntas.map((p) => faq.find((f) => f.p === p)).filter(Boolean);
 const jsonLd = [
   { "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Bolsillo", applicationCategory: "FinanceApplication", operatingSystem: "iOS, Android, Web",
     description: seo.descripcion, url: sitio.urlLanding, inLanguage: "es", offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" } },
-  { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq.map((f) => ({ "@type": "Question", name: f.p, acceptedAnswer: { "@type": "Answer", text: f.r } })) },
+  { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: preguntas.map((f) => ({ "@type": "Question", name: f.p, acceptedAnswer: { "@type": "Answer", text: f.r } })) },
 ].map((o) => `<script type="application/ld+json">${JSON.stringify(o)}</script>`).join("\n");
+const lineas = (l) => l.map((x) => `<span>${esc(x)}</span>`).join("");
+// Letra negra o blanca sobre un color, la que se lea mejor
+const tinta = (h) => { const l = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4)).reduce((t, v, i) => t + v * [.2126, .7152, .0722][i], 0); return (l + .05) / .05 >= 1.05 / (l + .05) ? "#000" : "#fff"; };
+const { tablero, interruptores, campos, autor, final } = cartel;
 
-const landing = `${cabeza({ titulo: seo.titulo, descripcion: seo.descripcion, url: sitio.urlLanding, extra: jsonLd + '\n<link rel="manifest" href="/manifest.webmanifest">\n' })}
-<body>
+const landing = `${cabeza({ titulo: seo.titulo, descripcion: seo.descripcion, url: sitio.urlLanding, extra: jsonLd + '\n<link rel="manifest" href="/manifest.webmanifest">\n<link rel="stylesheet" href="/conoce/cartel.css">\n' })}
+<body class="cartel">
 ${nav()}
 <main id="contenido">
-  <section class="hero" aria-labelledby="titular">
-    <div class="contenedor hero__rejilla">
-      <div class="hero__texto">
-        <h1 class="hero__titular" id="titular">${hero.titular.map((l) => `<span>${esc(l)}</span>`).join("")}</h1>
-        <p class="hero__sub">${esc(hero.subtitulo)}</p>
-        <div class="hero__acciones"><a class="boton boton--grande" href="${sitio.urlApp}">${sitio.cta}${icono("arrow-right")}</a><a class="boton boton--grande boton--secundario" href="#instalar">${icono("device-mobile")}Cómo instalarla</a></div>
-        <ul class="prueba" role="list">${hero.prueba.map((p) => `<li>${icono("shield-check")}${esc(p)}</li>`).join("")}</ul>
-        <a class="aviso-nuevo" href="#${novedad.id}">${esc(novedad.etiqueta)}: ${esc(novedad.aviso.toLowerCase())}${icono("arrow-right")}</a>
+  <section class="c-hero" aria-labelledby="titular">
+    <div class="c-hero__campo">
+      <h1 class="c-hero__titular" id="titular">${lineas(cartel.titular)}</h1>
+      <figure class="c-hero__foto"><img src="/conoce/img/mes.webp" alt="${esc(capturas[0].alt)}" width="1170" height="2532" fetchpriority="high" decoding="async"></figure>
+    </div>
+    <div class="c-hero__banda">
+      <p class="c-hero__sub">${esc(cartel.sub)}</p>
+      <a class="c-boton" href="${sitio.urlApp}">${sitio.cta}${icono("arrow-right")}</a>
+    </div>
+  </section>
+
+  <section class="c-tablero" id="tu-mes" aria-labelledby="t-tablero">
+    <div class="c-marco"><h2 class="c-titulo aparece" id="t-tablero">${esc(tablero.titulo)}</h2></div>
+    <ul class="c-filas" role="list" data-ui>${tablero.filas.map((f, i) => `
+      <li class="aparece" style="--i:${i}"><button type="button" class="c-fila" aria-expanded="${i === tablero.abierta}" style="--cat:${f.color};--cat-tinta:${tinta(f.color)}">
+        <span class="c-fila__nombre">${esc(f.nombre)}</span><span class="c-fila__nota">${esc(f.nota)}</span><span class="c-fila__cuando">${esc(f.cuando)}</span>
+        <span class="c-fila__importe num">${esc(f.importe)}</span><span class="c-fila__cat">${esc(f.cat)}</span><span class="c-fila__detalle">${esc(f.detalle)}</span></button></li>`).join("")}
+    </ul>
+  </section>
+
+  <section class="c-interruptores" id="funciones" aria-labelledby="t-funciones">
+    <div class="c-marco"><h2 class="c-titulo aparece" id="t-funciones">${esc(interruptores.titulo)}</h2></div>
+    ${interruptores.bandas.map((b, i) => `<div class="c-banda aparece${b.encendido ? " encendida" : ""}" style="--c:${b.color}">
+      <div class="c-marco c-banda__dentro"><p class="c-banda__frase" id="banda-${i}">${esc(b.frase)}</p>
+        <button type="button" class="c-switch" role="switch" aria-checked="${b.encendido}" aria-labelledby="banda-${i}" data-ui><span></span></button>
+        <p class="c-banda__consecuencia" aria-live="polite">${esc(b.consecuencia)}</p></div></div>`).join("")}
+  </section>
+
+  <section class="c-campos" id="como-funciona" aria-labelledby="t-campos">
+    ${campos.pasos.map((p, i) => `<div class="c-campo${p.color === "#000000" ? " c-campo--oscuro" : ""}" style="--c:${p.color}">
+      ${i === 0 ? `<h2 class="c-titulo" id="t-campos">${esc(campos.titulo)}</h2>` : ""}
+      <div class="c-campo__foto aparece"><img src="/conoce/img/${p.img}" alt="${esc(p.alt)}" width="1170" height="2532" loading="lazy" decoding="async"></div>
+      <p class="c-campo__texto aparece">${esc(p.texto)}</p></div>`).join("")}
+  </section>
+
+  <section class="c-preguntas" id="preguntas" aria-labelledby="t-faq">
+    <div class="c-marco c-preguntas__rejilla">
+      <h2 class="c-titulo c-preguntas__titulo" id="t-faq">Preguntas</h2>
+      <div class="c-acordeon">${preguntas.map((f, i) => `<details class="c-tile aparece" style="--i:${i}" name="preguntas"${i === 0 ? " open" : ""}><summary>${esc(f.p)}<span class="c-mas" aria-hidden="true"></span></summary><p>${esc(f.r)}</p></details>`).join("")}</div>
+    </div>
+  </section>
+
+  <section class="c-autor" id="autor" aria-labelledby="t-autor">
+    <div class="c-marco c-autor__rejilla">
+      <div class="c-autor__texto aparece"><h2 class="c-titulo" id="t-autor">${esc(autor.titulo)}</h2><p>${esc(autor.texto)}</p></div>
+      <a class="c-autor__codigo aparece" href="https://github.com/jaimemg11/Bolsillo" rel="noopener">${icono("github-logo")}<b>El código de Bolsillo</b><span>github.com/jaimemg11/Bolsillo</span></a>
+    </div>
+  </section>
+
+  <section class="c-final" id="instalar" aria-labelledby="t-final">
+    <div class="c-marco c-final__rejilla">
+      <div class="c-final__texto aparece"><h2 class="c-final__titular" id="t-final">${lineas(final.titulo)}</h2><p>${esc(final.texto)}</p></div>
+      <div class="c-dialogo" data-ui role="group" aria-labelledby="t-dialogo">
+        <b class="c-dialogo__titulo" id="t-dialogo">¿Con qué móvil vas?</b>
+        <div class="c-segmento" role="tablist" aria-label="Tu móvil">${instalar.sistemas.map((s, i) => `<button type="button" role="tab" id="tab-${s.id}" data-so="${s.id}" aria-selected="${i === 0}" aria-controls="so-${s.id}">${esc(s.nombre)}</button>`).join("")}</div>
+        ${instalar.sistemas.map((s, i) => `<div class="c-dialogo__so" id="so-${s.id}" role="tabpanel" aria-labelledby="tab-${s.id}"${i ? " hidden" : ""}>
+          <ol>${s.pasos.map((p) => `<li>${p.texto}</li>`).join("")}</ol>
+          <button type="button" class="c-boton c-boton--ancho" data-instalar="${s.id}">${icono("download-simple")}${esc(s.boton)}</button>
+          <p class="c-dialogo__ayuda" data-ayuda="${s.id}" hidden></p>
+          <p class="c-dialogo__nota">${esc(s.nota)}</p></div>`).join("")}
       </div>
-      <div class="hero__visual">
-        ${telefono("mes.webp", capturas[0].alt, "eager")}
-        <div class="hero__segundo">${telefono(novedad.img, novedad.alt, "eager")}</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="seccion instalar" id="instalar" aria-labelledby="t-instalar">
-    <div class="contenedor">
-      <h2 class="titulo-seccion aparece" id="t-instalar">${esc(instalar.titulo)}</h2>
-      <p class="entradilla aparece">${esc(instalar.texto)}</p>
-      <div class="instalar__selector aparece" role="tablist" aria-label="Tu móvil" data-activo="iphone">${instalar.sistemas.map((s, i) => `<button type="button" role="tab" id="tab-${s.id}" aria-controls="so-${s.id}" aria-selected="${i === 0}" data-so="${s.id}">${azulejo(s.icono, s.color, "azulejo--chip")}${esc(s.nombre)}</button>`).join("")}</div>
-      <div class="instalar__ventana aparece"><div class="instalar__rejilla" data-activo="iphone">${instalar.sistemas.map((s) => `<article class="instalar__so tarjeta" id="so-${s.id}" role="tabpanel" aria-labelledby="tab-${s.id}">
-        <header class="instalar__cabeza">${azulejo(s.icono, s.color)}<div><h3>${esc(s.nombre)}</h3><p>Con ${esc(s.navegador)}</p></div></header>
-        <ol class="instalar__pasos" role="list">${s.pasos.map((p, i) => `<li><span class="instalar__num num">${i + 1}</span>${azulejo(p.icono, p.color, "azulejo--peque")}<p>${p.texto}</p></li>`).join("")}</ol>
-        <button type="button" class="boton boton--grande instalar__boton" data-instalar="${s.id}">${icono("download-simple")}${esc(s.boton)}</button>
-        <p class="instalar__ayuda" data-ayuda="${s.id}" hidden></p>
-        <p class="instalar__nota">${esc(s.nota)}</p>
-      </article>`).join("")}</div></div>
-      <div class="instalar__acciones aparece"><a class="boton boton--grande" href="${sitio.urlApp}">Abrir Bolsillo para instalarla${icono("arrow-right")}</a></div>
-    </div>
-  </section>
-
-  <section class="seccion problema aparece" aria-labelledby="t-problema">
-    <div class="contenedor problema__rejilla">
-      <h2 class="titulo-seccion" id="t-problema">${esc(problema.titulo)}</h2>
-      <p class="entradilla">${esc(problema.texto)}</p>
-    </div>
-  </section>
-
-  <section class="seccion" id="${novedad.id}" aria-labelledby="t-novedad">
-    <div class="contenedor">
-      <div class="novedad aparece">
-        <div class="novedad__texto">
-          <h2 class="titulo-seccion" id="t-novedad">${esc(novedad.titulo)}</h2>
-          <p class="entradilla">${esc(novedad.texto)}</p>
-          <ul class="novedad__puntos" role="list">${novedad.puntos.map((p) => `<li>${azulejo(p.icono, p.color, "azulejo--peque")}<span>${esc(p.texto)}</span></li>`).join("")}</ul>
-          <div class="novedad__acciones"><a class="boton boton--grande" href="${sitio.urlApp}">${esc(novedad.boton)}${icono("arrow-right")}</a><a class="enlace-flecha" href="/novedades/">Todas las novedades${icono("arrow-right")}</a></div>
-        </div>
-        <div class="novedad__visual">${telefono(novedad.img, novedad.alt)}</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="seccion" id="funciones" aria-labelledby="t-funciones">
-    <div class="contenedor">
-      <h2 class="titulo-seccion aparece" id="t-funciones">Todo lo que necesitas, nada que te frene</h2>
-      <ul class="lista-puntos rejilla-funciones" role="list">${funciones.map((f) => `<li class="punto aparece"><h3>${azulejo(f.icono, f.color, "azulejo--peque")}${esc(f.titulo)}</h3><p>${esc(f.texto)}</p></li>`).join("")}</ul>
-    </div>
-  </section>
-
-  <section class="seccion categorias" aria-labelledby="t-categorias">
-    <div class="contenedor">
-      <div class="categorias__caja aparece">
-        <div class="categorias__texto"><h2 class="titulo-seccion" id="t-categorias">${esc(categoriasTexto.titulo)}</h2><p class="entradilla">${esc(categoriasTexto.texto)}</p></div>
-        <ul class="categorias__rejilla" role="list">${categorias.map((c) => `<li>${azulejo(c.icono, c.color, "azulejo--grande")}<span>${esc(c.nombre)}</span></li>`).join("")}</ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="seccion" id="como-funciona" aria-labelledby="t-pasos">
-    <div class="contenedor">
-      <h2 class="titulo-seccion aparece" id="t-pasos">Empieza en un minuto</h2>
-      <ol class="pasos">${pasos.map((p) => `<li class="paso aparece"><h3>${esc(p.titulo)}</h3><p>${esc(p.texto)}</p></li>`).join("")}</ol>
-    </div>
-  </section>
-
-  <section class="seccion frase" aria-label="La idea de Bolsillo">
-    <div class="contenedor"><p class="frase__texto">${frase.split(" ").map((w) => `<span class="frase__palabra">${esc(w)} </span>`).join("")}</p></div>
-  </section>
-
-  <section class="seccion" aria-labelledby="t-capturas">
-    <div class="contenedor">
-      <h2 class="titulo-seccion aparece" id="t-capturas">Así se ve por dentro</h2>
-      <ul class="capturas" role="list">${capturas.map((c) => `<li class="captura aparece">${c.img === "tu-mes.webp" ? `<div class="tarjeta-mes"><img src="/conoce/img/${c.img}" alt="${esc(c.alt)}" width="720" height="1280" loading="lazy" decoding="async"></div>` : telefono(c.img, c.alt)}<h3>${esc(c.titulo)}</h3><p>${esc(c.texto)}</p></li>`).join("")}</ul>
-    </div>
-  </section>
-
-  <section class="seccion" id="privacidad" aria-labelledby="t-privacidad">
-    <div class="contenedor">
-      <h2 class="titulo-seccion aparece" id="t-privacidad">${esc(privacidad.titulo)}</h2>
-      <ul class="lista-puntos rejilla-privacidad" role="list">${privacidad.puntos.map((p) => `<li class="punto aparece"><h3>${azulejo(p.icono, p.color, "azulejo--peque")}${esc(p.titulo)}</h3><p>${esc(p.texto)}</p></li>`).join("")}</ul>
-      <p class="nota-centro aparece">Todos los detalles en la <a href="/privacidad/">política de privacidad</a>.</p>
-    </div>
-  </section>
-
-  <section class="seccion" id="preguntas" aria-labelledby="t-faq">
-    <div class="contenedor estrecho">
-      <h2 class="titulo-seccion aparece" id="t-faq">Preguntas frecuentes</h2>
-      <div class="faq">${faq.map((f) => `<details class="aparece"><summary>${esc(f.p)}${icono("caret-down")}</summary><p>${esc(f.r)}</p></details>`).join("")}</div>
-    </div>
-  </section>
-
-  <section class="seccion autor" id="autor" aria-labelledby="t-autor">
-    <div class="contenedor estrecho">
-      <div class="autor__caja tarjeta aparece">
-        <h2 class="autor__titulo" id="t-autor">Hecha por un joven, para jóvenes</h2>
-        <p class="autor__texto">Soy Jaime, estudiante de DAW. Creé Bolsillo porque no llegaba a final de mes y no sabía en qué se me iba el dinero, igual que a mis amigos. El código es abierto: puedes ver cómo está hecha por dentro.</p>
-        <a class="boton boton--grande boton--secundario" href="https://github.com/jaimemg11/Bolsillo" rel="noopener">${icono("github-logo")}Ver el código en GitHub</a>
-      </div>
-    </div>
-  </section>
-
-  <section class="seccion cta-final aparece" aria-labelledby="t-cta">
-    <div class="contenedor estrecho centro">
-      <h2 class="titulo-seccion" id="t-cta">Que el dinero te dure hasta final de mes</h2>
-      <p class="entradilla">${esc(privacidad.riesgo)} Funciona en cualquier iPhone o Android.</p>
-      <a class="boton boton--grande" href="${sitio.urlApp}">${sitio.cta}${icono("arrow-right")}</a>
     </div>
   </section>
 </main>

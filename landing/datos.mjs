@@ -250,3 +250,46 @@ export const versiones = [
 export const enCamino = [];
 
 // La hoja de ruta (ideas que se votan) vive en compartido/ideas.js: la comparten la web, la app y el servidor.
+
+// ---------- Landing «cartel» (vida de estudiante): textos y ejemplos ----------
+// Los gastos del tablero son un ejemplo de un mes de estudiante en Sevilla (no son de nadie). El color de cada etiqueta es el de su categoría en la app.
+export const cartel = {
+  titular: ["¿Y mi", "pasta?"],
+  sub: "Bolsillo es la app de gastos para estudiantes: pagas con el móvil y se apunta sola, con su categoría. Gratis y sin darle tu banco a nadie.",
+  tablero: {
+    titulo: "Así se ve tu mes",
+    abierta: 3, // la fila que sale abierta (empezando en 0)
+    filas: [
+      { nombre: "Tussam", nota: "Línea 2, a la facultad", cuando: "lun 8:40", importe: "−1,40 €", cat: "Transporte", color: "#0a84ff", detalle: "Lo apunta solo al pagar con el móvil en el bus. Tú ni lo tocas." },
+      { nombre: "Café con leche", nota: "Cafetería de la facultad", cuando: "lun 9:05", importe: "−1,40 €", cat: "Comida", color: "#ff9500", detalle: "1,40 € al día no parece nada. En un curso entero, de lunes a viernes, son unos 250 €." },
+      { nombre: "Mercadona", nota: "La compra de la semana", cuando: "mar 19:20", importe: "−23,85 €", cat: "Súper", color: "#30b0c7", detalle: "«Mercadona» va solo a Súper. «Bus a clase», a Transporte. No eliges categoría." },
+      { nombre: "Glovo", nota: "Pizza del domingo", cuando: "dom 23:40", importe: "−14,50 €", cat: "Comida", color: "#ff9500", detalle: "Apuntado solo, con Apple Pay, a los dos minutos de pagar. Es tu gasto más caro en comida esta semana." },
+      { nombre: "Spotify", nota: "Se renueva el día 3", cuando: "jue 3", importe: "−10,99 €", cat: "Suscripción", color: "#5856d6", detalle: "Te avisa el día antes de que te cobren. Si ya no lo usas, te da tiempo a darte de baja." },
+      { nombre: "Pull&Bear", nota: "Nervión Plaza", cuando: "vie 18:10", importe: "−19,99 €", cat: "Ropa", color: "#ff2d55", detalle: "Si le pones un límite a Ropa, te avisa al llegar al 80 % y si te pasas." },
+      { nombre: "Fotocopias", nota: "Apuntes de Estadística", cuando: "mié 11:30", importe: "−3,20 €", cat: "Estudios", color: "#28a745", detalle: "Estudios tiene su categoría: así ves cuánto te cuesta de verdad la carrera." },
+      { nombre: "Bizum de Lucía", nota: "Su parte de la compra del piso", cuando: "jue 21:00", importe: "+21,50 €", cat: "Te ha pagado", color: "#30d158", detalle: "En el grupo del piso, Bolsillo calcula quién debe a quién. Lucía te paga desde un enlace y te llega un aviso." },
+    ],
+  },
+  interruptores: {
+    titulo: "Lo que hace por ti",
+    bandas: [
+      { frase: "Que se apunte solo al pagar", consecuencia: "Pagas 3,20 € en el bar y aparece: −3,20 € · Comida.", color: "#ff9500", encendido: true },
+      { frase: "Avísame antes de que me cobren", consecuencia: "Mañana se renueva Spotify: 10,99 €. ¿Lo sigues usando?", color: "#5ac8fa", encendido: false },
+      { frase: "Lleva las cuentas del piso", consecuencia: "Lucía te debe 21,50 € de la compra. Se lo pides con un enlace.", color: "#30d158", encendido: true },
+      { frase: "Recuérdame quién me debe", consecuencia: "Dani lleva 9 días sin devolverte 20 €. Le llega un toque.", color: "#ff6482", encendido: false },
+      { frase: "Dime si me voy a pasar", consecuencia: "A este ritmo acabas el mes con 312 €: 62 € más de lo que querías.", color: "#ffcc00", encendido: false },
+    ],
+  },
+  campos: {
+    titulo: "Así funciona",
+    pasos: [
+      { texto: "Apuntas un gasto en dos segundos.", img: "anadir.webp", alt: "Bolsillo apuntando 12,50 € en Mercadona: elige solo la categoría Súper", color: "#ff9500" },
+      { texto: "O se apunta solo al pagar con el móvil.", img: "mes.webp", alt: "Pantalla Mes de Bolsillo: lo gastado, lo que te queda y a qué ritmo vas", color: "#30b0c7" },
+      { texto: "Con el piso, cuentas claras.", img: "grupo.webp", alt: "Grupo Piso Triana en Bolsillo: quién debe pagar a quién", color: "#0a84ff" },
+      { texto: "Y ahorrar se vuelve un juego.", img: "metas.webp", alt: "Pantalla Metas de Bolsillo: racha de 9 días, retos y huchas", color: "#000000" },
+    ],
+  },
+  preguntas: ["¿Es gratis?", "¿Tengo que dar acceso a mi banco?", "¿Cómo se apunta sola al pagar?", "¿Hay que descargarla de la App Store o de Google Play?", "¿Funciona en Android?", "¿Puedo usarla con mis compañeros de piso o en un viaje?", "¿Qué pasa si cambio de móvil?", "¿Y si pierdo la clave?"],
+  autor: { titulo: "Quién la hace", texto: "Soy Jaime, estudiante de DAW en Sevilla. Hice Bolsillo porque no llegaba a final de mes y no sabía en qué se me iba el dinero, igual que a mis amigos. El código es abierto: puedes ver cómo está hecha por dentro." },
+  final: { titulo: ["Empieza", "hoy"], texto: "Se instala desde el navegador en diez segundos, sin tiendas de apps. Luego pones cuánto quieres gastar al mes y listo." },
+};

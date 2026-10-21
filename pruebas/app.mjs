@@ -223,6 +223,25 @@ async function sobresCon(cobros) {
   errores.push(...veterano.errores); await veterano.context().close();
 }
 
+// ---------- 9. La landing (/conoce/): lo que se puede tocar ----------
+{
+  const contexto = await navegador.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: MOVILES.iphone, serviceWorkers: "block" });
+  const p = await contexto.newPage(), errs = []; p.on("pageerror", (e) => errs.push(e.message));
+  await p.goto(URL_APP + "conoce/"); await espera(600);
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "la landing no se sale por los lados en el móvil");
+  await p.$eval(".c-fila", (b) => b.click()); await espera(100);
+  ok(await p.$$eval(".c-fila", (fs) => fs[0].getAttribute("aria-expanded") === "true" && fs.filter((f) => f.getAttribute("aria-expanded") === "true").length === 1), "al tocar un gasto del tablero se abre ese, y solo ese");
+  const s = (await p.$$(".c-switch"))[1];
+  await s.evaluate((b) => b.click()); await espera(100);
+  ok(await s.evaluate((b) => b.getAttribute("aria-checked") === "true" && b.closest(".c-banda").classList.contains("encendida")), "un interruptor se enciende y su franja se llena de color");
+  ok(await p.$eval("#so-iphone", (e) => !e.hidden) && await p.$eval("#so-android", (e) => e.hidden), "en un iPhone, la ventanita de instalar abre los pasos del iPhone");
+  await p.$eval('[data-so="android"]', (b) => b.click()); await espera(100);
+  ok(await p.$eval("#so-android", (e) => !e.hidden) && await p.$eval("#so-iphone", (e) => e.hidden), "y se puede cambiar a Android");
+  await p.$eval('[data-instalar="android"]', (b) => b.click()); await espera(200);
+  ok(await p.$eval('[data-ayuda="android"]', (e) => !e.hidden && e.textContent.includes("Android")), "el botón de instalar en Android, desde un iPhone, explica qué hacer");
+  errores.push(...errs); await contexto.close();
+}
+
 ok(!errores.length, "ningún error de JavaScript en la app" + (errores.length ? ": " + [...new Set(errores)].join(" | ") : ""));
 await navegador.close(); servidor.close();
 console.log(fallos ? `\n${fallos} prueba(s) fallan` : "\nTodo bien");

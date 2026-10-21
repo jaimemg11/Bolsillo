@@ -56,33 +56,28 @@
     secciones.forEach((s) => io.observe(s));
   }
 
-  // Instalar: se abre la pestaña de tu móvil (iPhone por defecto)
+  // Instalar: la ventanita «¿Con qué móvil vas?» abre la pestaña de tu móvil (iPhone si no se sabe)
   const pestanas = [...document.querySelectorAll("[data-so]")];
   if (pestanas.length) {
-    // En el móvil los dos sistemas van en fila: se desliza la fila y la ventana toma la altura del elegido
-    const selector = document.querySelector(".instalar__selector"), ventana = document.querySelector(".instalar__ventana"), fila = document.querySelector(".instalar__rejilla");
-    const movil = matchMedia("(max-width: 767px)");
-    let activo = "iphone";
-    const ajustarAltura = () => { ventana.style.height = movil.matches ? document.getElementById("so-" + activo).offsetHeight + "px" : ""; };
-    const elegir = (id) => {
-      activo = id;
-      selector.dataset.activo = fila.dataset.activo = id;
-      pestanas.forEach((b) => {
-        const si = b.dataset.so === id, panel = document.getElementById("so-" + b.dataset.so);
-        b.setAttribute("aria-selected", String(si));
-        // El que no se ve no se puede tocar ni lo lee el lector de pantalla (en ordenador se ven los dos)
-        panel.toggleAttribute("inert", !si && movil.matches);
-        panel.setAttribute("aria-hidden", String(!si && movil.matches));
-      });
-      ajustarAltura();
-    };
+    const elegir = (id) => pestanas.forEach((b) => {
+      const si = b.dataset.so === id;
+      b.setAttribute("aria-selected", String(si));
+      document.getElementById("so-" + b.dataset.so).hidden = !si;
+    });
     pestanas.forEach((b) => b.addEventListener("click", () => elegir(b.dataset.so)));
-    movil.addEventListener("change", () => elegir(activo));
-    addEventListener("resize", ajustarAltura);
-    // Si cambia el contenido (el texto de ayuda de los botones), la altura acompaña
-    if ("ResizeObserver" in window) { const ro = new ResizeObserver(ajustarAltura); document.querySelectorAll(".instalar__so").forEach((p) => ro.observe(p)); }
     elegir(/Android/i.test(navigator.userAgent) ? "android" : "iphone");
   }
+
+  // El tablero de gastos: al tocar uno, se abre con su explicación (y se cierra el que estaba abierto)
+  const filas = [...document.querySelectorAll(".c-fila")];
+  filas.forEach((f) => f.addEventListener("click", () => filas.forEach((o) => o.setAttribute("aria-expanded", String(o === f)))));
+
+  // Los interruptores de «Lo que hace por ti»: encendido, la franja se llena de color y dice lo que pasaría
+  document.querySelectorAll(".c-switch").forEach((s) => s.addEventListener("click", () => {
+    const si = s.getAttribute("aria-checked") !== "true";
+    s.setAttribute("aria-checked", String(si));
+    s.closest(".c-banda").classList.toggle("encendida", si);
+  }));
 
   // Botones de instalar. Android (Chrome): se instala desde aquí con el aviso del propio navegador.
   // iPhone: Apple no deja instalar con un botón, así que se abre la app en Safari con la guía en pantalla.

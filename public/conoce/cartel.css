@@ -1,0 +1,195 @@
+/* Landing «cartel»: la vida de un estudiante en carteles de colores (dirección «Loud and flat» de taste-skill).
+   Colores lisos de las categorías de la app, letra muy gruesa (Unbounded) para gritar y Onest para leer.
+   Esquinas rectas en todo salvo la foto del principio (un arco). Sin degradados, sin sombras salvo la ventanita que flota. */
+.cartel {
+  --azul: #0a84ff; --naranja: #ff9500; --turquesa: #30b0c7; --rosa: #ff2d55; --negro: #000; --blanco: #fff;
+  --m: 20px;                                         /* el único par de márgenes de toda la página */
+  --paso-peque: clamp(0.875rem, 0.85rem + 0.1vw, 0.9375rem);
+  --paso-texto: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+  --paso-entrada: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+  --paso-titulo: clamp(2rem, 1.3rem + 3.2vw, 4rem);
+  --paso-cartel: clamp(3.5rem, 2rem + 6vw, 9.375rem);   /* «Empieza hoy» y el correo del pie */
+  --gruesa: "Unbounded", "Onest", system-ui, sans-serif;
+  font-size: var(--paso-texto); line-height: 1.5;
+}
+@media (max-width: 599px) { .cartel { --m: 16px; } }
+.cartel .contenedor { max-width: none; padding-inline: var(--m); }
+.cartel .nav { max-width: none; padding-inline: var(--m); }
+.c-marco { padding-inline: var(--m); }
+.c-titulo { font-family: var(--gruesa); font-weight: 800; text-transform: uppercase; letter-spacing: -0.03em; line-height: 1; font-size: var(--paso-titulo); margin: 0; text-wrap: balance; }
+
+/* Botón: un rectángulo grueso, de un color liso */
+.c-boton { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; padding: 16px 28px; border: 0; border-radius: 0;
+  background: var(--azul); color: #000; font: 600 var(--paso-texto)/1.2 "Onest", sans-serif; text-decoration: none; cursor: pointer; transition: background 200ms, color 200ms, transform 200ms; }
+.c-boton:hover { background: #fff; color: #000; }
+.c-boton:active { transform: translateY(2px); }
+.c-boton .icono { width: 20px; height: 20px; transition: transform 200ms; }
+.c-boton:hover .icono { transform: translateX(4px); }
+
+/* ---------- Hero: el grito en negro sobre azul y la pantalla de la app pegada como un recorte ---------- */
+.c-hero { position: relative; overflow: hidden; }
+.c-hero__campo { position: relative; min-height: 82svh; background: var(--azul); padding: calc(64px + 13svh) var(--m) 0; }
+.c-hero__titular { position: relative; z-index: 1; margin: 0; color: #000; font-family: var(--gruesa); font-weight: 800; text-transform: uppercase;
+  letter-spacing: -0.03em; line-height: 0.84; font-size: clamp(80px, 12vw, 190px); }
+.c-hero__titular span { display: block; white-space: nowrap; }
+.c-hero__foto { position: absolute; z-index: 2; margin: 0; right: 9vw; bottom: -9svh; width: min(30vw, 460px); aspect-ratio: 3 / 4; transform: rotate(5deg);
+  border-radius: 999px 999px 0 0; overflow: hidden; background: #000; }
+@media (min-width: 600px) and (max-width: 1023px) { .c-hero__foto { width: 40vw; right: 6vw; } }
+.c-hero__foto img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.c-hero__banda { position: relative; z-index: 3; min-height: 18svh; background: #000; color: #f4f4f4; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 20px 40px; padding: 28px var(--m); }
+.c-hero__sub { margin: 0; max-width: 40ch; font-size: var(--paso-entrada); line-height: 1.45; }
+@media (max-width: 767px) {
+  .c-hero__campo { min-height: 78svh; padding-top: calc(56px + 10svh); }
+  .c-hero__titular { font-size: 16.5vw; }
+  .c-hero__foto { right: -6vw; bottom: -7svh; width: 58vw; }
+  .c-hero__banda { flex-direction: column; align-items: stretch; padding-top: 12svh; }
+  .c-hero__banda .c-boton { width: 100%; }
+}
+
+/* ---------- Tablero: los gastos de un mes, como un panel de salidas ---------- */
+.c-tablero { background: #000; color: #f4f4f4; padding: 120px 0 72px; }
+.c-tablero .c-titulo { margin-bottom: 40px; }
+.c-filas { list-style: none; margin: 0 12px; padding: 0; display: grid; gap: 4px; }
+.c-fila { width: 100%; min-height: 72px; display: grid; grid-template-columns: 4fr 4fr 2fr 2fr minmax(9em, auto); align-items: center; gap: 4px 24px; padding: 12px 20px;
+  border: 0; border-radius: 0; background: #1c1c1e; color: #f4f4f4; text-align: left; cursor: pointer; font: 500 var(--paso-entrada)/1.25 "Onest", sans-serif;
+  transition: background 200ms, color 200ms; }
+.c-fila:hover { background: #2c2c2e; }
+.c-fila__nota, .c-fila__cuando { color: #c9c9c9; }
+.c-fila__importe { text-align: right; font-variant-numeric: tabular-nums; }
+.c-fila__cat { justify-self: end; padding: 6px 12px; background: var(--cat); color: var(--cat-tinta); font-size: var(--paso-peque); font-weight: 700; }
+.c-fila__detalle { display: none; grid-column: 1 / -1; max-width: 60ch; font-size: var(--paso-texto); line-height: 1.5; padding-bottom: 8px; }
+.c-fila[aria-expanded="true"] { min-height: 216px; background: var(--azul); color: #000; align-content: center; }
+.c-fila[aria-expanded="true"] .c-fila__nombre { font-size: var(--paso-titulo); font-weight: 700; }
+.c-fila[aria-expanded="true"] .c-fila__nota, .c-fila[aria-expanded="true"] .c-fila__cuando { color: #000; }
+.c-fila[aria-expanded="true"] .c-fila__detalle { display: block; }
+@media (max-width: 1023px) {
+  .c-filas { margin: 0 8px; }
+  .c-fila { grid-template-columns: 1fr auto auto; min-height: 64px; gap: 4px 12px; padding: 10px 14px; }
+  .c-fila__nota, .c-fila__cuando { display: none; }
+  .c-fila[aria-expanded="true"] { min-height: 200px; }
+  .c-fila[aria-expanded="true"] .c-fila__nota, .c-fila[aria-expanded="true"] .c-fila__cuando { display: block; grid-column: 1 / -1; font-size: var(--paso-texto); }
+}
+
+/* ---------- Lo que hace por ti: frases con su interruptor ---------- */
+.c-interruptores { padding-top: 120px; }
+.c-interruptores > .c-marco { padding-bottom: 40px; }
+.c-banda { min-height: max(20vh, 160px); display: flex; align-items: center; background: var(--fondo); transition: background 300ms; }
+.c-banda.encendida { background: var(--c); }
+.c-banda__dentro { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 24px; padding-block: 24px; }
+.c-banda__frase { margin: 0; font-family: var(--gruesa); font-weight: 800; text-transform: uppercase; letter-spacing: -0.03em; line-height: 1.05; font-size: var(--paso-entrada); color: #5f5f5f; transition: color 300ms; }
+.c-banda.encendida .c-banda__frase { color: #000; }
+.c-banda__consecuencia { grid-column: 1; margin: 0; max-width: 60ch; font-size: var(--paso-texto); color: #000; display: none; }
+.c-banda.encendida .c-banda__consecuencia { display: block; }
+/* El interruptor de la app (como los de Ajustes del iPhone) */
+.c-switch { position: relative; width: 76px; height: 44px; border: 0; border-radius: 999px; background: #c7c7cc; cursor: pointer; flex: none; transition: background 250ms; }
+.c-switch span { position: absolute; top: 4px; left: 4px; width: 36px; height: 36px; border-radius: 50%; background: #fff; transition: transform 250ms cubic-bezier(.2, .8, .2, 1); }
+.c-switch[aria-checked="true"] { background: #000; }
+.c-switch[aria-checked="true"] span { transform: translateX(32px); }
+.c-banda:nth-child(odd):not(.encendida) { background: var(--superficie); }
+@media (max-width: 767px) {
+  .c-banda { min-height: 132px; }
+  .c-banda__frase { font-size: 5.2vw; }
+}
+
+/* ---------- Así funciona: cuatro campos de color, cada uno con su pantalla de verdad ---------- */
+.c-campos { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 120px; }
+.c-campo { position: relative; min-height: 84svh; background: var(--c); color: #000; padding: 28px; display: flex; flex-direction: column; }
+.c-campo--oscuro { color: #f4f4f4; }
+.c-campo .c-titulo { font-size: var(--paso-titulo); }
+.c-campo__foto { width: min(260px, 100%); aspect-ratio: 260 / 400; margin: auto auto 32px; overflow: hidden; background: #000; transition: transform 150ms; }
+.c-campo:hover .c-campo__foto { transform: translateY(-6px); }
+.c-campo__foto img { display: block; width: 100%; height: auto; }
+.c-campo__texto { margin: 0; font-size: var(--paso-entrada); line-height: 1.25; font-weight: 600; max-width: 14em; }
+@media (max-width: 1023px) {
+  .c-campos { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 599px) {
+  .c-campos { grid-template-columns: 1fr; }
+  .c-campo { min-height: 0; padding: 32px var(--m) 40px; }
+  .c-campo .c-titulo { order: -2; margin-bottom: 20px; }
+  .c-campo__texto { order: -1; margin-bottom: 24px; }
+  .c-campo__foto { margin: 0; width: 70%; }
+}
+
+/* ---------- Preguntas: el título se queda fijo y las preguntas pasan ---------- */
+.c-preguntas { padding: 160px 0 120px; }
+.c-preguntas__rejilla { display: grid; grid-template-columns: 4fr 8fr; gap: 40px; align-items: start; }
+.c-preguntas__titulo { position: sticky; top: 96px; }
+.c-acordeon { display: grid; gap: 8px; }
+.c-tile { background: var(--superficie); transition: background 200ms; }
+.c-tile summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 72px; padding: 16px 24px; font-size: var(--paso-entrada); font-weight: 500; cursor: pointer; }
+.c-tile summary::-webkit-details-marker { display: none; }
+.c-tile:hover { background: var(--superficie-2); }
+.c-tile[open] { background: var(--azul); }
+.c-tile p { margin: 0; padding: 0 24px 24px; max-width: 52ch; font-size: var(--paso-texto); line-height: 1.55; }
+.c-mas { position: relative; flex: none; width: 16px; height: 16px; }
+.c-mas::before, .c-mas::after { content: ""; position: absolute; left: 0; top: 6.5px; width: 16px; height: 3px; background: currentColor; transition: transform 200ms; }
+.c-mas::after { transform: rotate(90deg); }
+.c-tile[open] .c-mas::after { transform: rotate(0deg); }
+@media (max-width: 767px) {
+  .c-preguntas { padding: 96px 0 72px; }
+  .c-preguntas__rejilla { grid-template-columns: 1fr; gap: 24px; }
+  .c-preguntas__titulo { position: static; }
+  .c-acordeon { gap: 6px; }
+  .c-tile summary { min-height: 64px; padding: 14px 20px; }
+  .c-tile p { padding: 0 20px 20px; }
+}
+
+/* ---------- Quién la hace ---------- */
+.c-autor { background: var(--naranja); padding: 96px 0; }
+.c-autor__rejilla { display: grid; grid-template-columns: 7fr 5fr; gap: 40px; align-items: center; }
+.c-autor__texto .c-titulo { margin-bottom: 20px; }
+.c-autor__texto p { margin: 0; max-width: 52ch; font-size: var(--paso-entrada); line-height: 1.45; }
+.c-autor__codigo { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; align-items: center; padding: 28px; background: #000; color: #f4f4f4; text-decoration: none; transition: transform 200ms, background 200ms; }
+.c-autor__codigo:hover { background: #1c1c1e; transform: translateY(-4px); }
+.c-autor__codigo .icono { grid-row: 1 / 3; width: 44px; height: 44px; }
+.c-autor__codigo b { font-size: var(--paso-entrada); }
+.c-autor__codigo span { color: #c9c9c9; font-size: var(--paso-peque); }
+@media (max-width: 767px) { .c-autor { padding: 72px 0; } .c-autor__rejilla { grid-template-columns: 1fr; } }
+
+/* ---------- Final: «Empieza hoy» y la ventanita de instalar ya abierta ---------- */
+.c-final { background: var(--turquesa); min-height: 90svh; display: flex; align-items: center; padding: 96px 0; }
+.c-final__rejilla { width: 100%; display: grid; grid-template-columns: 6fr 5fr; gap: 40px; align-items: end; }
+.c-final__titular { margin: 0 0 20px; font-family: var(--gruesa); font-weight: 800; text-transform: uppercase; letter-spacing: -0.03em; line-height: 0.92; font-size: var(--paso-cartel); }
+.c-final__titular span { display: block; }
+.c-final__texto p { margin: 0; max-width: 40ch; font-size: var(--paso-texto); }
+.c-dialogo { justify-self: end; width: min(440px, 100%); background: #fff; color: #000; padding: 24px; border-radius: 20px; box-shadow: 0 24px 60px rgba(0, 0, 0, .25); align-self: center; } /* taste-skill-ignore: la ventanita flota, como un diálogo de la app */
+.c-dialogo__titulo { display: block; font-size: var(--paso-entrada); margin-bottom: 16px; }
+.c-segmento { display: grid; grid-template-columns: 1fr 1fr; padding: 2px; border-radius: 9px; background: rgba(118, 118, 128, .12); margin-bottom: 20px; }
+.c-segmento button { min-height: 40px; border: 0; border-radius: 7px; background: none; font: 500 var(--paso-texto) "Onest", sans-serif; color: #000; cursor: pointer; }
+.c-segmento button[aria-selected="true"] { background: #fff; font-weight: 600; } /* taste-skill-ignore: el segmento de la app (data-ui) */
+.c-dialogo__so ol { margin: 0 0 20px; padding-left: 22px; display: grid; gap: 10px; font-size: var(--paso-texto); line-height: 1.45; }
+.c-boton--ancho { width: 100%; background: #000; color: #fff; border-radius: 12px; }
+.c-boton--ancho:hover { background: #2c2c2e; color: #fff; }
+.c-dialogo__ayuda { margin: 12px 0 0; padding: 12px; border-radius: 10px; background: #e8f2ff; font-size: var(--paso-peque); }
+.c-dialogo__nota { margin: 12px 0 0; color: #5f5f5f; font-size: var(--paso-peque); }
+@media (max-width: 767px) {
+  .c-final { padding: 72px 0; }
+  .c-final__rejilla { grid-template-columns: 1fr; }
+  .c-dialogo { justify-self: stretch; width: 100%; }
+  .c-boton--ancho { min-height: 52px; }
+}
+
+/* ---------- Movimiento: la pantalla del principio se abre como una persiana; lo demás aparece al llegar ---------- */
+@keyframes persiana { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes asentar { from { transform: scale(1.12); } to { transform: none; } }
+.js .c-hero__foto { animation: persiana 1.1s cubic-bezier(.2, .8, .2, 1) .15s both; }
+.js .c-hero__foto img { animation: asentar 1.4s cubic-bezier(.2, .8, .2, 1) .15s both; }
+.js .c-hero__titular span { animation: subir .7s cubic-bezier(.2, .8, .2, 1) both; }
+.js .c-hero__titular span:nth-child(2) { animation-delay: .08s; }
+@keyframes subir { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .js .c-hero__foto, .js .c-hero__foto img, .js .c-hero__titular span { animation: none; }
+}
+
+/* Las filas y las preguntas aparecen una detrás de otra */
+.js .cartel .aparece { transition-delay: calc(var(--i, 0) * 60ms); }
+
+/* La barra de arriba es parte del cartel: el nombre con la letra gruesa, sobre el azul, y se va al bajar */
+.cartel .nav-caja { position: absolute; background: transparent; }
+.cartel .nav { padding: 16px var(--m); }
+.cartel .nav__marca img { display: none; }
+.cartel .nav__marca { font-family: var(--gruesa); font-weight: 800; text-transform: uppercase; letter-spacing: -0.03em; font-size: 22px; color: #000; }
+.cartel .nav__enlace { color: #000; font-weight: 600; }
+.cartel .nav__abrir:hover { background: #fff; color: #000; }
