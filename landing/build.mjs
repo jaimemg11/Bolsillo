@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { instalar, sitio, seo, capturas, faq, versiones, enCamino, cartel } from "./datos.mjs";
+import { instalar, sitio, seo, capturas, faq, versiones, enCamino, cartel, creditosFotos } from "./datos.mjs";
 import { IDEAS } from "../compartido/ideas.js";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), PUBLIC = path.join(AQUI, "..", "public");
@@ -53,7 +53,7 @@ const nav = () => `<a class="saltar" href="#contenido">Saltar al contenido</a>
 
 // El pie es una despedida: el correo en grande, para escribir con una idea o un fallo
 const [usuarioCorreo, dominioCorreo] = sitio.email.split("@");
-const pie = () => `<footer class="pie">
+const pie = (creditos = []) => `<footer class="pie">
   <div class="contenedor pie__dentro">
     <div class="pie__arriba"><p><b>Bolsillo</b> · La app de gastos para estudiantes. Hecha en ${esc(sitio.ciudad)}.</p><a class="pie__subir" href="#contenido">Volver arriba</a></div>
     <div class="pie__contacto"><p>¿Una idea o un fallo? Escríbeme:</p><a class="pie__correo" href="mailto:${sitio.email}"><span>${esc(usuarioCorreo)}</span><span>@${esc(dominioCorreo)}</span></a></div>
@@ -61,7 +61,8 @@ const pie = () => `<footer class="pie">
       <ul role="list" class="pie__enlaces"><li><a href="${sitio.urlApp}">Abrir la app</a></li><li><a href="/novedades/">Novedades</a></li><li><a href="https://github.com/jaimemg11/Bolsillo" rel="noopener">Código</a></li><li><a href="/privacidad/">Privacidad</a></li><li><a href="/aviso-legal/">Aviso legal</a></li></ul>
       <p class="pie__nota">Apple Pay es una marca de Apple Inc. y Google Wallet, de Google LLC. Bolsillo no está afiliado a ellas.</p>
       <p class="pie__lugar">${esc(sitio.ciudad)}, ${new Date().getFullYear()}</p>
-    </div>
+    </div>${creditos.length ? `
+    <p class="pie__creditos">Fotos de Wikimedia Commons: ${creditos.map((c) => `<a href="${c.url}" rel="noopener">${esc(c.que)}</a>, de ${esc(c.autor)} (${esc(c.licencia)})`).join(" · ")}.</p>` : ""}
   </div>
 </footer>`;
 
@@ -76,6 +77,8 @@ const jsonLd = [
     description: seo.descripcion, url: sitio.urlLanding, inLanguage: "es", offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" } },
   { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: preguntas.map((f) => ({ "@type": "Question", name: f.p, acceptedAnswer: { "@type": "Answer", text: f.r } })) },
 ].map((o) => `<script type="application/ld+json">${JSON.stringify(o)}</script>`).join("\n");
+// El aviso que manda Bolsillo al móvil, tal cual se ve en la pantalla de bloqueo
+const aviso = (a, clase = "") => `<div class="c-aviso ${clase}" data-ui><img src="/icono-192.png" alt="" width="38" height="38"><div><p class="c-aviso__app">Bolsillo · ahora</p><b>${esc(a.titulo)}</b><p>${esc(a.texto)}</p></div></div>`;
 const lineas = (l) => l.map((x) => `<span>${esc(x)}</span>`).join("");
 // Letra negra o blanca sobre un color, la que se lea mejor
 const tinta = (h) => { const l = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4)).reduce((t, v, i) => t + v * [.2126, .7152, .0722][i], 0); return (l + .05) / .05 >= 1.05 / (l + .05) ? "#000" : "#fff"; };
@@ -88,7 +91,8 @@ ${nav()}
   <section class="c-hero" aria-labelledby="titular">
     <div class="c-hero__campo">
       <h1 class="c-hero__titular" id="titular">${lineas(cartel.titular)}</h1>
-      <figure class="c-hero__foto"><img src="/conoce/img/mes.webp" alt="${esc(capturas[0].alt)}" width="1170" height="2532" fetchpriority="high" decoding="async"></figure>
+      <figure class="c-hero__foto"><img src="/conoce/img/fotos/${cartel.foto.img}" alt="${esc(cartel.foto.alt)}" width="${cartel.foto.ancho}" height="${cartel.foto.alto}" fetchpriority="high" decoding="async"></figure>
+      ${aviso(cartel.aviso, "c-hero__aviso")}
     </div>
     <div class="c-hero__banda">
       <p class="c-hero__sub">${esc(cartel.sub)}</p>
@@ -116,7 +120,7 @@ ${nav()}
   <section class="c-campos" id="como-funciona" aria-labelledby="t-campos">
     ${campos.pasos.map((p, i) => `<div class="c-campo${p.color === "#000000" ? " c-campo--oscuro" : ""}" style="--c:${p.color}">
       ${i === 0 ? `<h2 class="c-titulo" id="t-campos">${esc(campos.titulo)}</h2>` : ""}
-      <div class="c-campo__foto aparece"><img src="/conoce/img/${p.img}" alt="${esc(p.alt)}" width="1170" height="2532" loading="lazy" decoding="async"></div>
+      <div class="c-campo__foto aparece"><img src="/conoce/img/fotos/${p.img}" alt="${esc(p.alt)}" width="${p.ancho}" height="${p.alto}" loading="lazy" decoding="async">${aviso(p.aviso, "c-campo__aviso")}</div>
       <p class="c-campo__texto aparece">${esc(p.texto)}</p></div>`).join("")}
   </section>
 
@@ -149,7 +153,7 @@ ${nav()}
     </div>
   </section>
 </main>
-${pie()}
+${pie(creditosFotos)}
 <script src="/conoce/landing.js" defer></script>
 </body>
 </html>`;
@@ -263,46 +267,61 @@ escribir("404.html", `${cabeza({ titulo: "Esta página no existe · Bolsillo", d
 // ---------- Novedades para la app: la hoja «Novedades» del móvil lee este archivo (lo nuevo desde la última versión que viste) ----------
 escribir("novedades.json", JSON.stringify({ versiones: versiones.slice(0, 12).map(({ version, fecha, titulo, icono, color, cambios }) => ({ version, fecha, titulo, icono, color, cambios })) }));
 
-// ---------- Novedades: hoja de ruta + historial de versiones ----------
+// ---------- Novedades: hoja de ruta + historial, con el mismo estilo de cartel que la landing ----------
+// La captura de la app que enseña lo que trajo cada versión (solo las que tienen una)
+const capturaVersion = { "2.9": ["mes.webp", "La pantalla Mes, con lo gastado, lo que queda y el cambio entre mes y semana"], "2.6": ["prestamo.webp", "Un préstamo a Lucía: te debe 35 €, con el historial y el botón «Me lo ha devuelto»"], "2.3": ["grupo.webp", "El grupo del piso: quién debe a quién y el botón para pagar"], "1.6": ["duelo.webp", "Un duelo «¿Quién gasta menos?» con el marcador de cada amigo"], "1.3": ["metas.webp", "La pantalla Metas: racha, retos y huchas"] };
+// Una versión del historial: las siete últimas con todo lo que trajeron; las anteriores, en una línea (número, título y fecha)
+const versionCorta = (v) => `<li class="n-version n-version--corta aparece"><div class="c-marco n-version__dentro"><p class="n-version__numero num">${esc(v.version)}</p><div class="n-version__cuerpo"><h3>${esc(v.titulo)}</h3><p class="n-version__fecha">${fechaLarga(v.fecha)}</p></div></div></li>`;
+const version = (v, i) => `<li class="n-version aparece${i === 0 ? " n-version--ultima" : ""}">
+      <div class="c-marco n-version__dentro">
+        <div class="n-version__cabeza"><p class="n-version__numero num">${esc(v.version)}</p><p class="n-version__fecha">${fechaLarga(v.fecha)}${i === 0 ? " · la última" : ""}</p></div>
+        <div class="n-version__cuerpo"><h3>${esc(v.titulo)}</h3><ul role="list">${v.cambios.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></div>
+        ${capturaVersion[v.version] ? `<div class="n-version__foto"><img src="/conoce/img/${capturaVersion[v.version][0]}" alt="${esc(capturaVersion[v.version][1])}" width="1170" height="2532" loading="lazy" decoding="async"></div>` : ""}
+      </div></li>`;
 const fechaLarga = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
-escribir("novedades/index.html", `${cabeza({ titulo: "Novedades y hoja de ruta · Bolsillo", descripcion: "Cómo va creciendo Bolsillo: lo que trae cada versión y lo que viene después.", url: sitio.urlLanding.replace("conoce/", "novedades/") })}
-<body>
+escribir("novedades/index.html", `${cabeza({ titulo: "Novedades y hoja de ruta · Bolsillo", descripcion: "Cómo va creciendo Bolsillo: lo que trae cada versión y lo que viene después.", url: sitio.urlLanding.replace("conoce/", "novedades/"), extra: '<link rel="stylesheet" href="/conoce/cartel.css">\n' })}
+<body class="cartel">
 ${nav()}
-<main id="contenido" class="novedades">
-  <div class="contenedor estrecho">
-    <a class="volver" href="/conoce/">${icono("arrow-left")}Volver</a>
-    <h1>Novedades</h1>
-    <p class="entradilla">Cómo va creciendo Bolsillo: lo que trae cada versión y lo que viene después. Versión actual: <b>${versiones[0].version}</b>, del ${fechaLarga(versiones[0].fecha)}.</p>
-
+<main id="contenido">
+  <section class="n-cabeza" aria-labelledby="t-novedades">
+    <div class="c-marco">
+      <h1 class="n-cabeza__titular" id="t-novedades">Novedades</h1>
+      <figure class="n-cabeza__foto"><img src="/conoce/img/tu-mes.webp" alt="La tarjeta «Mi mes en Bolsillo» para compartir en stories" width="720" height="1280" fetchpriority="high" decoding="async"></figure>
+      <p class="n-cabeza__sub">Cómo va creciendo Bolsillo: lo que trae cada versión y lo que viene después. Ahora va por la <b>${versiones[0].version}</b>, del ${fechaLarga(versiones[0].fecha)}.</p>
+    </div>
+  </section>
 ${enCamino.length ? `
-    <h2 class="titulo-seccion">Ya en camino</h2>
-    <ul class="ruta" role="list">${enCamino.map((p) => `<li class="ruta__item ruta__item--camino">${azulejo(p.icono, p.color)}<div class="ruta__texto"><span class="estado estado--siguiente">La próxima versión</span><h3>${esc(p.titulo)}</h3><p>${esc(p.texto)}</p></div></li>`).join("")}</ul>
-
+  <section class="n-camino" aria-labelledby="t-camino">
+    <div class="c-marco"><h2 class="c-titulo" id="t-camino">Ya en camino</h2>
+      <ul class="n-camino__lista" role="list">${enCamino.map((p) => `<li><b>${esc(p.titulo)}</b><span>${esc(p.texto)}</span></li>`).join("")}</ul></div>
+  </section>
 ` : ""}
-    <h2 class="titulo-seccion">Tú decides lo que viene después</h2>
-    <p class="entradilla votos__intro">Vota las ideas que quieras ver antes en Bolsillo. La que más votos tenga es la siguiente que hacemos. <span id="votantes"></span></p>
-    <ul class="ruta" id="ideas" role="list">${IDEAS.map((p) => `<li class="ruta__item" data-idea-caja="${p.id}">${azulejo(p.icono, p.color)}<div class="ruta__texto"><h3>${esc(p.titulo)}</h3><p>${esc(p.texto)}</p></div>
-      <button class="voto" type="button" data-idea="${p.id}" aria-pressed="false" aria-label="Votar: ${esc(p.titulo)}">${icono("arrow-up")}<span class="num" data-votos>–</span></button></li>`).join("")}</ul>
-    <form class="sugerir" id="sugerir">
-      <label for="sugerencia"><b>¿Echas algo en falta?</b> Cuéntanos tu idea. Solo la lee el equipo de Bolsillo.</label>
-      <div class="sugerir__fila"><input id="sugerencia" maxlength="300" placeholder="Me gustaría que Bolsillo…" autocomplete="off"><button class="boton" type="submit">Enviar</button></div>
-      <p class="sugerir__estado" id="sugerir-estado" role="status"></p>
+  <section class="n-votos" aria-labelledby="t-votos">
+    <div class="c-marco"><h2 class="c-titulo aparece" id="t-votos">Tú decides lo que viene</h2>
+      <p class="n-votos__intro aparece">Vota las ideas que quieras ver antes en Bolsillo. La que más votos tenga es la siguiente que hago. <span id="votantes"></span></p></div>
+    <ul class="n-ideas" id="ideas" role="list">${IDEAS.map((p) => `<li class="n-idea aparece" data-idea-caja="${p.id}" style="--c:${p.color};--tinta:${tinta(p.color)}">
+      <div class="c-marco n-idea__dentro"><div class="n-idea__texto"><h3>${esc(p.titulo)}</h3><p>${esc(p.texto)}</p></div>
+        <button class="n-voto" type="button" data-idea="${p.id}" aria-pressed="false" aria-label="Votar: ${esc(p.titulo)}">${icono("arrow-up")}<span class="num" data-votos>–</span></button></div></li>`).join("")}</ul>
+    <form class="n-sugerir" id="sugerir">
+      <div class="c-marco">
+        <label for="sugerencia"><b>¿Echas algo en falta?</b> Cuéntame tu idea. Solo la leo yo.</label>
+        <div class="n-sugerir__fila"><input id="sugerencia" maxlength="300" placeholder="Me gustaría que Bolsillo…" autocomplete="off"><button class="c-boton" type="submit">Enviar</button></div>
+        <p class="n-sugerir__estado" id="sugerir-estado" role="status"></p>
+      </div>
     </form>
+  </section>
 
-    <h2 class="titulo-seccion">Historial</h2>
-    <ol class="historial" role="list">${versiones.map((v, i) => `<li class="version">
-      <div class="version__marca">${azulejo(v.icono, v.color)}</div>
-      <div class="version__cuerpo">
-        <p class="version__fecha"><span class="num">Versión ${esc(v.version)}</span> · ${fechaLarga(v.fecha)}${i === 0 ? ' <span class="estado estado--siguiente">La última</span>' : ""}</p>
-        <h3>${esc(v.titulo)}</h3>
-        <ul role="list">${v.cambios.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
-      </div></li>`).join("")}</ol>
+  <section class="n-historial" aria-labelledby="t-historial">
+    <div class="c-marco"><h2 class="c-titulo aparece" id="t-historial">Historial</h2></div>
+    <ol class="n-versiones" role="list">${versiones.map((v, i) => (i < 7 ? version(v, i) : versionCorta(v))).join("")}</ol>
+  </section>
 
-    <script src="/conoce/votos.js" defer></script>
-    <div class="cta-novedades"><a class="boton boton--grande" href="${sitio.urlApp}">${sitio.cta}${icono("arrow-right")}</a></div>
-  </div>
+  <section class="n-final" aria-labelledby="t-n-final">
+    <div class="c-marco n-final__dentro"><h2 class="c-titulo" id="t-n-final">¿La pruebas?</h2><a class="c-boton" href="${sitio.urlApp}">${sitio.cta}${icono("arrow-right")}</a></div>
+  </section>
 </main>
 ${pie()}
+<script src="/conoce/votos.js" defer></script>
 <script src="/conoce/landing.js" defer></script>
 </body>
 </html>`);

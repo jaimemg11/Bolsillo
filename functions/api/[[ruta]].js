@@ -22,7 +22,7 @@ import { marcador, cerrarSiToca, hoyMadrid as hoyDuelo, masDias, diasEntre, DURA
 const TIPOS = { gasto: ["comida", "super", "transporte", "ocio", "ropa", "subs", "estudios", "otros"], ingreso: ["paga", "trabajo", "ventas", "regalo", "devolucion"] };
 const NOMBRES = { comida: "Comida", super: "Súper", transporte: "Transporte", ocio: "Ocio", ropa: "Ropa", subs: "Suscripciones", estudios: "Estudios", otros: "Otros", devolucion: "Devolución", paga: "Paga", trabajo: "Trabajo", ventas: "Ventas", regalo: "Regalo" };
 const MAX_MOVS = 50_000; // por persona: años de gastos
-const AJUSTES = ["paga", "huchas", "retos", "insignias", "ocultos", "tema", "fijos", "limites", "variable", "limitesPeriodo"]; // ocultos: ids de gastos que no se enseñan en los círculos // lo que se guarda además de los movimientos y el presupuesto
+const AJUSTES = ["paga", "huchas", "retos", "insignias", "ocultos", "tema", "fijos", "limites", "variable", "limitesPeriodo", "saldo", "horas"]; // ocultos: ids de gastos que no se enseñan en los círculos // lo que se guarda además de los movimientos y el presupuesto
 const REGISTROS_POR_HORA = 5; // nubes nuevas por IP y hora (evita que alguien llene la base)
 
 // Categoría según la tienda (lo que pone el datáfono). Se mira en orden: lo más concreto primero.
@@ -121,7 +121,8 @@ function movValido(m) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(m.fecha || "") || !fechaReal(m.fecha)) return null;
   return { id: m.id, tipo: m.tipo, cat: TIPOS[m.tipo].includes(m.cat) ? m.cat : TIPOS[m.tipo].at(-1), importe, nota: String(m.nota || "").slice(0, 60),
     fecha: m.fecha, creado: String(m.creado || new Date().toISOString()).slice(0, 30), actualizado: String(m.actualizado || m.creado || new Date().toISOString()).slice(0, 30),
-    borrado: m.borrado ? 1 : 0, origen: ["applepay", "wallet", "voz", "fijo"].includes(m.origen) ? m.origen : "app" };
+    borrado: m.borrado ? 1 : 0, origen: ["applepay", "wallet", "voz", "fijo", "ajuste"].includes(m.origen) ? m.origen : "app",
+    donde: ["efectivo", "banco"].includes(m.donde) ? m.donde : null }; // de dónde sale el dinero (para los saldos); sin decir, no se sabe
 }
 
 async function sync(usuario, cuerpo, env) {
@@ -133,10 +134,10 @@ async function sync(usuario, cuerpo, env) {
   }
   // Lo que cambia el usuario en la app siempre manda (gana el último en llegar): no se comparan relojes, que en un PC pueden ir atrasados.
   // Apple Pay solo crea movimientos nuevos, así que nunca pisa un cambio tuyo.
-  const insertar = env.DB.prepare(`INSERT INTO movs (usuario, id, tipo, cat, importe, nota, fecha, creado, actualizado, borrado, origen, servido) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+  const insertar = env.DB.prepare(`INSERT INTO movs (usuario, id, tipo, cat, importe, nota, fecha, creado, actualizado, borrado, origen, servido, donde) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
     ON CONFLICT(usuario, id) DO UPDATE SET tipo = excluded.tipo, cat = excluded.cat, importe = excluded.importe, nota = excluded.nota, fecha = excluded.fecha,
-    actualizado = excluded.actualizado, borrado = excluded.borrado, servido = excluded.servido`);
-  const lote = cambios.map((m) => insertar.bind(usuario, m.id, m.tipo, m.cat, m.importe, m.nota, m.fecha, m.creado, m.actualizado, m.borrado, m.origen, ahora));
+    actualizado = excluded.actualizado, borrado = excluded.borrado, servido = excluded.servido, donde = excluded.donde`);
+  const lote = cambios.map((m) => insertar.bind(usuario, m.id, m.tipo, m.cat, m.importe, m.nota, m.fecha, m.creado, m.actualizado, m.borrado, m.origen, ahora, m.donde));
   if (cuerpo.presupuesto && typeof cuerpo.presupuesto === "object") {
     const p = cuerpo.presupuesto, valor = Number.isInteger(p.valor) && p.valor > 0 ? String(p.valor) : null;
     lote.push(env.DB.prepare(`INSERT INTO ajustes (usuario, clave, valor, actualizado, servido) VALUES (?1, 'presupuesto', ?2, ?3, ?4)
@@ -161,13 +162,13 @@ async function sync(usuario, cuerpo, env) {
     let lista = []; try { lista = JSON.parse(fijos.valor) || []; } catch {}
     const cuando = new Date().toISOString();
     const nuevos = fijosQueTocan(lista, hoyMadrid()).map((m) => movValido({ ...m, creado: cuando, actualizado: cuando, origen: "fijo" })).filter(Boolean);
-    const apuntar = env.DB.prepare(`INSERT INTO movs (usuario, id, tipo, cat, importe, nota, fecha, creado, actualizado, borrado, origen, servido) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 'fijo', ?10)
+    const apuntar = env.DB.prepare(`INSERT INTO movs (usuario, id, tipo, cat, importe, nota, fecha, creado, actualizado, borrado, origen, servido, donde) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 'fijo', ?10, 'banco')
       ON CONFLICT(usuario, id) DO NOTHING`);
     if (nuevos.length) await env.DB.batch(nuevos.map((m) => apuntar.bind(usuario, m.id, m.tipo, m.cat, m.importe, m.nota, m.fecha, m.creado, m.actualizado, ahora)));
   }
   // Se devuelve con 10 s de solape: si dos escrituras caen en el mismo instante, no se pierde ninguna (la app ignora repetidos)
   const desde = Math.max(0, Number(cuerpo.desde) || 0) - 10_000;
-  const { results } = await env.DB.prepare("SELECT id, tipo, cat, importe, nota, fecha, creado, actualizado, borrado, origen, servido FROM movs WHERE usuario = ?1 AND servido > ?2 ORDER BY servido").bind(usuario, desde).all();
+  const { results } = await env.DB.prepare("SELECT id, tipo, cat, importe, nota, fecha, creado, actualizado, borrado, origen, servido, donde FROM movs WHERE usuario = ?1 AND servido > ?2 ORDER BY servido").bind(usuario, desde).all();
   const p = filas.find((f) => f.clave === "presupuesto");
   const ajustes = {};
   for (const f of filas) if (AJUSTES.includes(f.clave)) { try { ajustes[f.clave] = { valor: JSON.parse(f.valor), actualizado: f.actualizado }; } catch {} }
@@ -503,7 +504,8 @@ async function applePay(usuario, cuerpo, env, origen = "applepay", esperar) {
   mov.actualizado = mov.creado;
   const texto = `${devolucion ? "+" : "−"}${euros(mov.importe)} · ${NOMBRES[mov.cat] || mov.cat}${tienda ? ` (${tienda})` : ""}`;
   if (cuerpo.prueba) return json({ ok: true, prueba: true, texto, mov });
-  await env.DB.prepare("INSERT INTO movs (usuario, id, tipo, cat, importe, nota, fecha, creado, actualizado, borrado, origen, servido) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10, ?11)")
+  // Lo que se paga con el móvil (Apple Pay, Google Wallet) sale de la cuenta del banco
+  await env.DB.prepare("INSERT INTO movs (usuario, id, tipo, cat, importe, nota, fecha, creado, actualizado, borrado, origen, servido, donde) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10, ?11, 'banco')")
     .bind(usuario, mov.id, mov.tipo, mov.cat, mov.importe, mov.nota, mov.fecha, mov.creado, mov.actualizado, origen, Date.now()).run();
   // El aviso de confirmación lo da Bolsillo (no el atajo): se manda por detrás para no hacer esperar al pago
   const aviso = avisoLimite(usuario, mov, env).catch(() => "").then((limite) => avisarUsuario(env, usuario, {

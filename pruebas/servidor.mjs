@@ -101,5 +101,22 @@ ok(ultimo.resultado === "ignorado" && ultimo.texto === "[not_title] [notificatio
 await llamar("pago", { titulo: "Mercadona", texto: "4,00 €", prueba: true }, beto);
 ok((await llamar("ultimo-pago", null, beto)).datos.texto === "[not_title] [notification]", "el botón «Probar» no cuenta como pago recibido");
 
+// «Tu dinero»: de dónde sale cada gasto, los ajustes de saldo y el saldo guardado en la nube
+await llamar("sync", { cambios: [{ ...mov("d-efectivo", "2026-10-21"), donde: "efectivo" }, { ...mov("d-raro", "2026-10-21"), donde: "bolsillo-trasero" },
+  { id: "d-ajuste", tipo: "gasto", cat: "otros", importe: 250, nota: "Sin apuntar", fecha: "2026-10-21", origen: "ajuste", donde: "banco" }],
+  ajustes: { saldo: { valor: { efectivo: { importe: 9000, desde: "2026-10-21T10:00:00Z" }, banco: { importe: 0, desde: "2026-10-21T10:00:00Z" } } } } }, beto);
+const fila = (id) => DB.sql.prepare("SELECT donde, origen FROM movs WHERE id = ?").get(id);
+ok(fila("d-efectivo").donde === "efectivo", "un gasto pagado en efectivo se guarda con «efectivo»");
+ok(fila("d-raro").donde === null, "un sitio que no existe se queda sin decir");
+ok(fila("d-ajuste").origen === "ajuste" && fila("d-ajuste").donde === "banco", "los ajustes de saldo se guardan como tales");
+ok(DB.sql.prepare("SELECT donde FROM movs WHERE origen = 'wallet' LIMIT 1").get().donde === "banco", "lo pagado con el móvil sale de la cuenta del banco");
+const vuelta = (await llamar("sync", { desde: 0 }, beto)).datos;
+ok(vuelta.movs.find((m) => m.id === "d-efectivo")?.donde === "efectivo" && vuelta.ajustes.saldo?.valor.efectivo.importe === 9000, "al sincronizar vuelven el sitio de cada gasto y tus saldos");
+
+// Tus horas: el precio y los apuntes se guardan en la nube como un ajuste más
+await llamar("sync", { ajustes: { horas: { valor: { precio: 800, apuntes: [{ id: "h1", fecha: "2026-10-21", min: 270, nota: "Turno de tarde" }] } } } }, beto);
+ok((await llamar("sync", { desde: 0 }, beto)).datos.ajustes.horas?.valor.apuntes[0].min === 270, "tus horas y lo que cobras la hora se guardan en la nube");
+ok(!(await llamar("ideas")).datos.ideas.some((i) => i.id === "horas"), "«Apuntar tus horas» ya no sale en «Tú decides lo que viene»");
+
 console.log(fallos ? `\n${fallos} prueba(s) fallan` : "\nTodo bien");
 process.exitCode = fallos ? 1 : 0;

@@ -223,6 +223,86 @@ async function sobresCon(cobros) {
   errores.push(...veterano.errores); await veterano.context().close();
 }
 
+// ---------- 10. Tu dinero: lo que tienes, de dónde sale y cómo se reparte (cobra los jueves; fijos: grado y ordenador) ----------
+{
+  const fijos = [{ id: "grado", nombre: "Grado", tipo: "gasto", cat: "estudios", importe: 21900, dia: 5, desde: "2026-01" }, { id: "ordena", nombre: "Ordenador", tipo: "gasto", cat: "otros", importe: 11531, dia: 10, desde: "2026-01" }];
+  const p = await abrir({ datos: { presupuesto: 4000 }, extra: { paga: { semana: 4 }, variable: { ahorro: 0 }, fijos }, guardado: { "bolsillo.primerosPasos": "no" } });
+  await p.click("#empezar-dinero"); await espera(500);
+  await p.fill("#dlg-efectivo", "90"); await p.click("#ok-dialogo"); await espera(700);
+  const r0 = await p.evaluate(() => B.repartoDinero());
+  ok(r0.total === 9000 && r0.efectivo === 9000 && r0.banco === 0, "le dices que tienes 90 € en efectivo y lo apunta");
+  ok(r0.fijos[0].f.nombre === "Grado" && r0.fijos[0].apartado + r0.fijos[1].apartado + r0.ahorro + r0.caprichos === 9000, `el reparto suma lo que tienes: grado ${r0.fijos[0].apartado / 100} €, ordenador ${r0.fijos[1].apartado / 100} €, caprichos ${r0.caprichos / 100} €`);
+  ok(await p.evaluate(() => !B.datos.extra.variable), "«Según lo que cobro» deja de usarse");
+  const resumen = await texto(p, "#resumen");
+  ok(!/presupuesto|Te quedan/.test(resumen), "y la tarjeta de lo gastado ya no habla de un presupuesto: " + resumen.slice(0, 80));
+  ok((await texto(p, "#tu-dinero")).includes("Tienes") && (await texto(p, "#tu-dinero")).includes("90,00 €"), "arriba sale «Tienes 90,00 €»");
+  await pulsar(p, '[data-rango="semana"]'); await espera(300);
+  const enSemana = await texto(p, "#tu-dinero");
+  await pulsar(p, '[data-rango="mes"]'); await espera(300);
+  const enMes = await texto(p, "#tu-dinero");
+  ok(enSemana.includes("Esta semana has cobrado") && enMes.includes("Este mes has cobrado") && enSemana.includes("90,00 €") && enMes.includes("90,00 €"), "con «Semana» o «Mes» cambia lo cobrado y gastado, pero lo que tienes es lo mismo");
+  // Un café en efectivo
+  await pulsar(p, "#abrir-anadir"); await espera(500);
+  ok(!(await p.$eval("#fila-donde", (e) => e.hidden)), "al apuntar, se elige de dónde sale");
+  await p.fill("#importe", "1,4"); await p.fill("#nota", "Café"); await p.click('[data-donde="efectivo"]'); await pulsar(p, "#guardar-mov"); await espera(600);
+  ok(await p.evaluate(() => B.repartoDinero().efectivo === 9000 - 140), "un café de 1,40 € en efectivo: quedan 88,60 € en efectivo");
+  // Cobra 68,25 € en la cuenta
+  await pulsar(p, "#abrir-anadir"); await espera(500);
+  await p.click('[data-tipo="ingreso"]'); await p.fill("#importe", "68,25"); await p.click('[data-donde="banco"]'); await pulsar(p, "#guardar-mov"); await espera(600);
+  const r1 = await p.evaluate(() => B.repartoDinero());
+  ok(r1.banco === 6825 && r1.total === 9000 - 140 + 6825, "cobras 68,25 € en la cuenta y se suma");
+  // Ajustar: en la cartera en realidad hay 80 €
+  await p.click("#ajustar-saldo"); await espera(500);
+  await p.fill("#dlg-efectivo", "80"); await p.click("#ok-dialogo"); await espera(600);
+  const ajuste = await p.evaluate(() => B.datos.movs.find((m) => m.origen === "ajuste"));
+  ok(ajuste && ajuste.tipo === "gasto" && ajuste.importe === 860 && ajuste.donde === "efectivo" && ajuste.nota === "Sin apuntar", "al ajustar a 80 €, los 8,60 € que faltan se apuntan como «Sin apuntar»");
+  ok(await p.evaluate(() => B.repartoDinero().efectivo === 8000), "y el efectivo cuadra: 80,00 €");
+  errores.push(...p.errores); await p.context().close();
+  // Al empezar la semana nueva, lo que sobró la anterior pasa al ahorro
+  const q = await abrir({ datos: { presupuesto: 4000 }, extra: { paga: { semana: 4 }, fijos, saldo: { efectivo: { importe: 0, desde: "2026-01-01T00:00:00Z" }, banco: { importe: 50000, desde: "2026-01-01T00:00:00Z" }, ahorro: 0, cerrado: "2026-01-01" } }, guardado: { "bolsillo.primerosPasos": "no" } });
+  const cierre = await q.evaluate(() => { const ini = B.periodo().ini, dia = new Date(Date.parse(ini + "T12:00:00Z") - 864e5).toISOString().slice(0, 10); return { esperado: B.repartoDinero(dia, ini + "T00:00:00").libre, ahorro: B.datos.extra.saldo.ahorro, cerrado: B.datos.extra.saldo.cerrado, ini }; });
+  ok(cierre.ahorro === cierre.esperado && cierre.cerrado === cierre.ini && cierre.ahorro > 0, `al empezar la semana, lo que te sobró pasa a tu ahorro: ${cierre.ahorro / 100} €`);
+  const r2 = await q.evaluate(() => B.repartoDinero());
+  const apartadoFijos = r2.fijos.reduce((t, x) => t + x.apartado, 0);
+  ok(r2.ahorro === Math.min(cierre.ahorro, r2.total - apartadoFijos) && apartadoFijos + r2.ahorro + r2.caprichos === r2.total, `el reparto suma lo que tienes, y si los fijos necesitan parte del ahorro se usa primero para ellos (${(cierre.ahorro - r2.ahorro) / 100} €)`);
+  ok(r2.ahorro === cierre.ahorro || (await texto(q, "#tu-dinero")).includes("van a tus fijos"), "y la app explica cuánto de tu ahorro va a los fijos");
+  errores.push(...q.errores); await q.context().close();
+}
+
+// ---------- 11. Tus horas: cobra 8 € la hora, apunta sus turnos y los cobra ----------
+{
+  const haceDias = (n) => new Date(Date.now() - n * 864e5).toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
+  const p = await abrir({ datos: { movs: [mov("cobro-viejo", "ingreso", "trabajo", 5000, "", haceDias(10))] }, guardado: { "bolsillo.primerosPasos": "no" } });
+  ok(!(await p.$eval("#tus-horas", (e) => e.hidden)) && (await texto(p, "#tus-horas")).includes("¿Trabajas por horas?"), "a quien cobra por trabajo se le propone apuntar sus horas");
+  await pulsar(p, "#empezar-horas"); await espera(500);
+  await p.fill("#dlg-precio", "8"); await p.click("#ok-dialogo"); await espera(600);
+  ok((await texto(p, "#tus-horas")).includes("8,00 €/h"), "pone que cobra 8 € la hora");
+  await pulsar(p, "#apuntar-horas"); await espera(500);
+  await p.fill("#dlg-horas", "4,5"); await p.fill("#dlg-nota", "Turno de tarde"); await p.click("#ok-dialogo"); await espera(600);
+  await pulsar(p, "#apuntar-horas"); await espera(500);
+  await p.fill("#dlg-horas", "3:30"); await p.click("#ok-dialogo"); await espera(600);
+  const tarjeta = await texto(p, "#tus-horas");
+  ok(tarjeta.includes("8 h sin cobrar") && tarjeta.includes("unos 64,00 €") && tarjeta.includes("Turno de tarde"), "apunta 4,5 h y 3:30: «8 h sin cobrar, unos 64,00 €»");
+  await pulsar(p, '[data-quitar-horas]'); await espera(500); // el primero de la lista: las 3:30, que son las últimas
+  ok((await texto(p, "#tus-horas")).includes("4,5 h sin cobrar"), "con la × se quita un apunte");
+  // Le pagan 36 € por esas 4,5 h
+  await pulsar(p, "#abrir-anadir"); await espera(500);
+  await p.click('[data-tipo="ingreso"]'); await p.click('[data-cat="trabajo"]'); await p.fill("#importe", "36"); await pulsar(p, "#guardar-mov"); await espera(300);
+  ok((await texto(p, "#aviso")).includes("Por tus 4,5 h esperabas unos 36,00 €: cuadra"), "al apuntar lo que le pagan, le dice si cuadra con sus horas: " + (await texto(p, "#aviso")));
+  await espera(400);
+  ok((await texto(p, "#tus-horas")).includes("Todo cobrado"), "y esas horas pasan a cobradas");
+  // Si borra ese cobro, las horas vuelven a estar sin cobrar
+  const idCobro = await p.evaluate(() => B.datos.movs.find((m) => m.importe === 3600).id);
+  await pulsar(p, `[data-editar="${idCobro}"]`); await espera(500);
+  await pulsar(p, "#borrar-mov"); await espera(700);
+  ok((await texto(p, "#tus-horas")).includes("4,5 h sin cobrar"), "si borra ese cobro, las horas vuelven a estar sin cobrar");
+  ok(await p.evaluate(() => B.datos.extraPend.horas), "y sus horas se guardan para subir a la nube");
+  errores.push(...p.errores); await p.context().close();
+  const sinTrabajo = await abrir({ guardado: { "bolsillo.primerosPasos": "no" } });
+  ok(await sinTrabajo.$eval("#tus-horas", (e) => e.hidden), "a quien no cobra por trabajo no se le enseña nada de horas");
+  errores.push(...sinTrabajo.errores); await sinTrabajo.context().close();
+}
+
 // ---------- 9. La landing (/conoce/): lo que se puede tocar ----------
 {
   const contexto = await navegador.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: MOVILES.iphone, serviceWorkers: "block" });

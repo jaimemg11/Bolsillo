@@ -124,6 +124,17 @@ export const novedad = {
 
 // ---------- Novedades: lo que trae cada versión (la más nueva arriba). Al añadir algo a la app, se apunta aquí. ----------
 export const versiones = [
+  { version: "3.0", fecha: "2026-10-21", titulo: "Tu dinero", icono: "wallet", color: "#0a84ff", cambios: [
+    "Nuevo: «Tu dinero». Le dices cuánto tienes en efectivo y en la cuenta, y Bolsillo lo lleva al día con cada gasto e ingreso que apuntas.",
+    "Al apuntar eliges de dónde sale: efectivo o cuenta. Lo que pagas con Apple Pay o Google Wallet, y tus fijos, salen de la cuenta solos.",
+    "Tu dinero se reparte: primero lo que ya deberías tener apartado para cada fijo (el grado, el ordenador…), después tu ahorro, y lo que queda es para tus caprichos, con cuánto puedes gastar al día.",
+    "Si no llega para tus fijos, te dice cuánto te falta, y lo que cobres irá primero ahí.",
+    "Tu ahorro crece solo: lo que te sobra cada semana pasa a él.",
+    "Botón «Ajustar»: si no cuadra con tu banco o con tu cartera, pones lo que tienes de verdad y la diferencia se apunta como «Sin apuntar».",
+    "Con «Mes» o «Semana» ves lo cobrado y lo gastado de cada uno, y hasta cuándo te tiene que durar lo de caprichos.",
+    "«Tu dinero» sustituye al presupuesto, a «Según lo que cobro» y a los tres sobres: ya no hay que poner un presupuesto a mano.",
+    "Arreglado: en modo oscuro ya se ve qué opción está elegida en los selectores (iPhone o Android, Gasto o Ingreso…).",
+  ] },
   { version: "2.9", fecha: "2026-10-20", titulo: "Tus tres sobres y ver por semanas", icono: "wallet", color: "#5856d6", cambios: [
     "Con el presupuesto «Según lo que cobro», lo que cobras se reparte en tres sobres: tus fijos, tu ahorro y lo que puedes gastar.",
     "Primero se aparta la parte de tus gastos fijos (el grado, el ordenador…), después tu ahorro, y lo que queda es para gastar.",
@@ -194,7 +205,7 @@ export const versiones = [
   { version: "1.8", fecha: "2026-10-19", titulo: "Modo tóxico", icono: "eye", color: "#af52de", cambios: [
     "Círculos de confianza (máximo 8 personas) para ver los gastos de tu gente.",
     "Tres niveles: Light (solo totales), Medio (cada gasto sin tus notas) y Tóxico total.",
-    "Reacciones 💀 😂 🔥 🤡, ranking de la vergüenza semanal y el momento del día.",
+    "Reacciones a los gastos de tus amigos (calavera, risa, fuego y payaso), ranking de la vergüenza semanal y el momento del día.",
     "Oculta un gasto concreto o sal del círculo cuando quieras: dejan de verte al momento.",
   ] },
   { version: "1.7", fecha: "2026-10-19", titulo: "Tú decides lo que viene", icono: "thumbs-up", color: "#007aff", cambios: [
@@ -253,9 +264,21 @@ export const enCamino = [];
 
 // ---------- Landing «cartel» (vida de estudiante): textos y ejemplos ----------
 // Los gastos del tablero son un ejemplo de un mes de estudiante en Sevilla (no son de nadie). El color de cada etiqueta es el de su categoría en la app.
+// Las fotos son de Wikimedia Commons (licencias libres): se citan en el pie de la landing
+export const creditosFotos = [
+  { que: "Autobús de Tussam", autor: "AmigoDeBusesEMT3", licencia: "CC BY 2.0", url: "https://commons.wikimedia.org/wiki/File:TUSSAM_1901_-_MAN_NL313F_GNC_Castrosua_City_Versus_-_Flickr_-_AmigoDeBusesEMT3.jpg" },
+  { que: "Café con leche y tostadas", autor: "Jorge Gonzalez", licencia: "CC BY-SA 2.0", url: "https://commons.wikimedia.org/wiki/File:Caf%C3%A9_con_leche_and_tostadas.jpg" },
+  { que: "Mercado de Triana", autor: "Anual", licencia: "CC BY-SA 4.0", url: "https://commons.wikimedia.org/wiki/File:Mercado_triana_2016002.jpg" },
+  { que: "Puente de Triana", autor: "Gzzz", licencia: "CC BY-SA 3.0", url: "https://commons.wikimedia.org/wiki/File:Puente_de_Triana_anochecer.jpg" },
+  { que: "Las Setas", autor: "kallerna", licencia: "CC BY-SA 4.0", url: "https://commons.wikimedia.org/wiki/File:Metropol_Parasol_Plaza_de_la_Encarnaci%C3%B3n_1.jpg" },
+];
+
 export const cartel = {
   titular: ["¿Y mi", "pasta?"],
   sub: "Bolsillo es la app de gastos para estudiantes: pagas con el móvil y se apunta sola, con su categoría. Gratis y sin darle tu banco a nadie.",
+  // Arriba: una foto de Sevilla y, encima, el aviso que te manda Bolsillo en ese momento (los textos son los de verdad de la app)
+  foto: { img: "tussam.webp", alt: "Un autobús de Tussam por una calle de Sevilla", ancho: 1400, alto: 1050 },
+  aviso: { titulo: "1,40 € en Tussam", texto: "Apuntado en Transporte. Si no es así, tócalo y lo cambias." },
   tablero: {
     titulo: "Así se ve tu mes",
     abierta: 3, // la fila que sale abierta (empezando en 0)
@@ -283,10 +306,10 @@ export const cartel = {
   campos: {
     titulo: "Así funciona",
     pasos: [
-      { texto: "Apuntas un gasto en dos segundos.", img: "anadir.webp", alt: "Bolsillo apuntando 12,50 € en Mercadona: elige solo la categoría Súper", color: "#ff9500" },
-      { texto: "O se apunta solo al pagar con el móvil.", img: "mes.webp", alt: "Pantalla Mes de Bolsillo: lo gastado, lo que te queda y a qué ritmo vas", color: "#30b0c7" },
-      { texto: "Con el piso, cuentas claras.", img: "grupo.webp", alt: "Grupo Piso Triana en Bolsillo: quién debe pagar a quién", color: "#0a84ff" },
-      { texto: "Y ahorrar se vuelve un juego.", img: "metas.webp", alt: "Pantalla Metas de Bolsillo: racha de 9 días, retos y huchas", color: "#000000" },
+      { texto: "El café de la mañana, apuntado en dos segundos.", img: "cafe.webp", alt: "Un café con leche y tostadas en la mesa de un bar", ancho: 1400, alto: 932, color: "#ff9500", aviso: { titulo: "1,40 € en la cafetería", texto: "Apuntado en Comida. Si no es así, tócalo y lo cambias." } },
+      { texto: "La compra se apunta sola al pagar con el móvil.", img: "mercado.webp", alt: "Un puesto de fruta y verdura del Mercado de Triana", ancho: 1400, alto: 933, color: "#30b0c7", aviso: { titulo: "23,85 € en el Mercado de Triana", texto: "Apuntado en Súper. Si no es así, tócalo y lo cambias." } },
+      { texto: "Con los amigos, cuentas claras.", img: "puente.webp", alt: "Gente paseando por el Puente de Triana al atardecer", ancho: 1400, alto: 917, color: "#0a84ff", aviso: { titulo: "Lucía dice que te ha pagado 21,50 €", texto: "Por Bizum. Toca para confirmar que te ha llegado." } },
+      { texto: "Y ahorrar se vuelve un juego.", img: "setas.webp", alt: "Las Setas de Sevilla contra el cielo azul", ancho: 1400, alto: 933, color: "#000000", aviso: { titulo: "Tu racha de 9 días está en peligro", texto: "Apunta algo hoy para no perderla. ¡Son dos segundos!" } },
     ],
   },
   preguntas: ["¿Es gratis?", "¿Tengo que dar acceso a mi banco?", "¿Cómo se apunta sola al pagar?", "¿Hay que descargarla de la App Store o de Google Play?", "¿Funciona en Android?", "¿Puedo usarla con mis compañeros de piso o en un viaje?", "¿Qué pasa si cambio de móvil?", "¿Y si pierdo la clave?"],

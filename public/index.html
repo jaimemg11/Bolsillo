@@ -48,9 +48,9 @@
   /* Oscuro: el del móvil, salvo que en Apariencia se elija «Claro»; o siempre, si se elige «Oscuro» */
   @media (prefers-color-scheme: dark) {
     :root:not([data-tema="claro"]) { color-scheme: dark; --fondo: #000000; --tarjeta: #1c1c1e; --texto: #ffffff; --suave: #98989f; --tenue: #636366; --linea: rgba(84, 84, 88, .5);
-      --acento: #0a84ff; --acento-fondo: #0066d6; --verde: #30d158; --rojo: #ff453a; --relleno: rgba(118, 118, 128, .24); --sombra: none; --sobre-verde: #00210b; } /* acento-fondo: los botones con letra blanca, más oscuros que el texto azul */
+      --acento: #0a84ff; --acento-fondo: #0066d6; --verde: #30d158; --rojo: #ff453a; --relleno: rgba(118, 118, 128, .24); --sombra: none; --sobre-verde: #00210b; --segmento-elegido: #636366; } /* acento-fondo: los botones con letra blanca, más oscuros que el texto azul */
   }
-  :root[data-tema="oscuro"] { color-scheme: dark; --fondo: #000000; --tarjeta: #1c1c1e; --texto: #ffffff; --suave: #98989f; --tenue: #636366; --linea: rgba(84, 84, 88, .5); --acento: #0a84ff; --acento-fondo: #0066d6;
+  :root[data-tema="oscuro"] { color-scheme: dark; --fondo: #000000; --tarjeta: #1c1c1e; --texto: #ffffff; --suave: #98989f; --tenue: #636366; --linea: rgba(84, 84, 88, .5); --acento: #0a84ff; --acento-fondo: #0066d6; --segmento-elegido: #636366;
     --verde: #30d158; --rojo: #ff453a; --relleno: rgba(118, 118, 128, .24); --sombra: none; --sobre-verde: #00210b; }
   :root[data-tema="claro"] { color-scheme: light; }
   /* Color elegido en Apariencia: la versión oscurecida para texto en claro y para botones; la original para texto en oscuro */
@@ -88,6 +88,35 @@
   .total small { font-size: 26px; font-weight: 600; }
   .barra { height: 8px; border-radius: 4px; background: var(--relleno); overflow: hidden; margin: 14px 0 8px; display: flex; }
   .barra i { display: block; height: 100%; transition: width .5s var(--curva); }
+  /* Tu dinero: lo que tienes y cómo se reparte (fijos, ahorro y caprichos) */
+  .dinero { background: var(--tarjeta); border-radius: 20px; padding: 18px 18px 14px; margin-top: 12px; box-shadow: var(--sombra); }
+  .dinero-cabeza { display: flex; justify-content: space-between; align-items: center; }
+  .dinero-cabeza .enlace { min-height: 44px; padding: 0 2px; }
+  .dinero-sitios { margin: 4px 0 0; color: var(--suave); font-size: 15px; }
+  .dinero-periodo { margin: 10px 0 0; font-size: 15px; } .dinero-periodo b { font-weight: 600; white-space: nowrap; }
+  .dinero-barra { margin: 14px 0 6px; gap: 2px; background: var(--relleno); }
+  .dinero-filas { margin-top: 6px; }
+  .dinero-fila { display: flex; align-items: flex-start; gap: 12px; min-height: 52px; padding: 8px 0; } /* el punto y la cantidad, a la altura del nombre, no del centro de la fila */
+  .dinero-fila + .dinero-fila { border-top: .5px solid var(--linea); }
+  .dinero-fila .medio { flex: 1; min-width: 0; }
+  .dinero-fila .medio b { display: block; font-size: 16px; line-height: 22px; } .dinero-fila .medio small { display: block; color: var(--suave); font-size: 13px; margin-top: 1px; }
+  .dinero-fila > .num { font-size: 16px; line-height: 22px; }
+  .dinero-fila.destacada .medio b, .dinero-fila.destacada > .num { font-size: 18px; line-height: 24px; color: var(--acento); }
+  .dinero-fila.destacada .dinero-punto { margin-top: 7px; }
+  .dinero-punto { flex: none; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--c); }
+  .dinero-aviso { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--rojo) 10%, transparent); color: var(--texto); font-size: 14px; }
+  .dinero-empezar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; position: relative; padding-right: 28px; }
+  .dinero-empezar > div { flex: 1 1 220px; } .dinero-empezar b { display: block; font-size: 17px; } .dinero-empezar span { display: block; color: var(--suave); font-size: 14px; margin-top: 2px; }
+  .dinero-empezar .boton-azul { padding: 11px 20px; }
+  .dinero-empezar .cerrar-aviso { position: absolute; top: -6px; right: -6px; min-width: 36px; min-height: 36px; font-size: 22px; color: var(--suave); }
+  /* Tus horas: lo que has trabajado y aún no has cobrado */
+  .horas-total { margin: 2px 0 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em; } .horas-total small { font-size: 17px; font-weight: 600; color: var(--suave); margin-left: 6px; }
+  .horas-fila { align-items: center; } .horas-fila .dinero-punto { margin-top: 0; }
+  .horas-quitar { flex: none; min-width: 36px; min-height: 36px; margin: -6px -8px -6px 0; font-size: 20px; color: var(--suave); }
+  .horas-nota { margin: 8px 0 0; color: var(--suave); font-size: 14px; }
+  .donde { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 0 4px; }
+  .donde > span { color: var(--suave); font-size: 15px; }
+  .donde .segmento { margin: 0; min-width: 200px; }
   /* Gráfico del ritmo: una línea de color (lo tuyo) y una gris discontinua (para llegar justo) */
   .ritmo { margin: 16px 0 4px; }
   .ritmo-hallazgo { margin: 0 0 10px; font-size: 15px; line-height: 1.4; }
@@ -303,7 +332,7 @@
   .segmento button { padding: 6px; border-radius: 7px; font-size: 14px; font-weight: 500; }
   .segmento button { transition: background .2s, color .2s; }
   #hoja-mov .segmento { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; } /* Gasto, Ingreso y Préstamo (al editar, sin Préstamo) */
-  .segmento button[aria-pressed="true"] { background: var(--tarjeta); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); font-weight: 600; }
+  .segmento button[aria-pressed="true"] { background: var(--segmento-elegido, var(--tarjeta)); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); font-weight: 600; } /* en oscuro, el gris de iOS: si no, la opción elegida no se distingue */
   /* Gasto en rojo, ingreso en verde: que se vea de un vistazo qué estás apuntando */
   .segmento button[data-tipo="gasto"][aria-pressed="true"] { background: var(--rojo); color: #fff; }
   .segmento button[data-tipo="ingreso"][aria-pressed="true"] { background: var(--verde); color: var(--sobre-verde, #fff); }
@@ -449,6 +478,8 @@
   </div>
   <div class="segmento rango" role="group" aria-label="Ver"><button data-rango="mes" aria-pressed="true">Mes</button><button data-rango="semana" aria-pressed="false">Semana</button></div>
   <div id="instalar"></div>
+  <section class="dinero" id="tu-dinero" aria-live="polite" hidden></section>
+  <section class="dinero" id="tus-horas" aria-live="polite" hidden></section>
   <section class="resumen" id="resumen" aria-live="polite"></section>
   <div id="extras-mes"></div>
   <div id="categorias"></div>
@@ -483,6 +514,7 @@
     <div class="campo"><label for="nota">Nota</label><input id="nota" placeholder="Opcional" maxlength="60" autocomplete="off" enterkeyhint="done"></div>
     <div class="campo"><label for="fecha">Fecha</label><input id="fecha" type="date"></div>
   </div>
+  <div class="donde" id="fila-donde" hidden><span>¿De dónde sale?</span><div class="segmento" role="group" aria-label="De dónde sale el dinero"><button data-donde="efectivo" aria-pressed="false">Efectivo</button><button data-donde="banco" aria-pressed="true">Cuenta</button></div></div>
   <div class="campos" id="fila-oculto" style="margin-top:14px" hidden><label class="check"><input type="checkbox" id="mov-oculto"> Ocultar en mis círculos (modo tóxico)</label></div>
   <button class="borrar" id="borrar-mov" hidden>Borrar movimiento</button>
 </section>
@@ -492,7 +524,8 @@
   <div class="asa"></div>
   <div class="hoja-cabeza"><span style="min-width:70px"></span><h3 id="titulo-ajustes">Ajustes</h3><button data-cerrar>Listo</button></div>
   <div class="campos">
-    <div class="campo"><label for="presupuesto">Presupuesto al mes</label><input id="presupuesto" class="num" inputmode="decimal" placeholder="Sin límite" autocomplete="off"></div>
+    <div class="campo" id="fila-tu-dinero"><span>Tu dinero</span><button class="enlace" id="ajustes-dinero">Empezar</button></div>
+    <div class="campo" id="fila-presupuesto"><label for="presupuesto">Presupuesto al mes</label><input id="presupuesto" class="num" inputmode="decimal" placeholder="Sin límite" autocomplete="off"></div>
     <label class="check"><input type="checkbox" id="presupuesto-variable"> Según lo que cobro</label>
     <div class="campo" id="fila-ahorro" hidden><label for="ahorro">Ahorrar</label><select id="ahorro"></select></div>
     <div class="campo" id="fila-hucha-ahorro" hidden><label for="hucha-ahorro">Guardarlo en</label><select id="hucha-ahorro"></select></div>
@@ -502,6 +535,8 @@
     <div class="campo"><label for="dia-paga">Cobro</label><select id="dia-paga"><option value="">Fin de mes (normal)</option></select></div>
   </div>
   <p class="nota-ajuste">Con presupuesto, Bolsillo te dice cuánto te queda y cuánto puedes gastar al día. Si cobras otro día (por ejemplo el 15) o cada semana (por ejemplo los jueves), elígelo y las cuentas irán de paga a paga.</p>
+  <div class="campos"><div class="campo"><button class="boton-fila" id="abrir-horas">Tus horas</button><span class="estado-sync" id="precio-horas"></span></div></div>
+  <p class="nota-ajuste">Si trabajas por horas: pon cuánto cobras la hora, apunta las que haces y Bolsillo te dice cuánto vas a cobrar.</p>
   <div class="campos"><div class="campo"><button class="boton-fila" id="abrir-fijos">Gastos e ingresos fijos</button><span class="estado-sync" id="cuantos-fijos"></span></div></div>
   <p class="nota-ajuste">El alquiler, el gimnasio, Spotify o la paga: se apuntan solos cada mes el día que toca.</p>
   <div class="campos"><div class="campo"><button class="boton-fila" id="abrir-limites">Límites por categoría</button><span class="estado-sync" id="cuantos-limites"></span></div></div>
@@ -900,8 +935,208 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     const pendiente = pendienteDeAntes(pe), fijos = reservaFijos(pe) + pendiente, libre = cobrado - fijos, ahorro = libre > 0 ? Math.round(libre * (v.ahorro || 0) / 100) : 0;
     return { cobrado, fijos, pendiente, ahorro, gastar: Math.max(0, libre - ahorro), faltan: Math.max(0, -libre) };
   }
-  // Con los sobres, los fijos ya tienen su parte: no se descuentan de lo que tienes para gastar
-  const cuenta = (x) => !(datos.extra.variable && x.origen === "fijo");
+  // Con los sobres o con «Tu dinero», los fijos ya tienen su parte: no se descuentan de lo que tienes para gastar
+  const cuenta = (x) => !((datos.extra.variable || datos.extra.saldo) && x.origen === "fijo");
+
+  // ---------- Tu dinero: lo que tienes (en efectivo y en la cuenta) y cómo se reparte ----------
+  // saldo = { efectivo: { importe, desde }, banco: { importe, desde }, ahorro, cerrado }: lo que tenías en ese momento («desde»);
+  // a partir de ahí, cada apunte de ese sitio suma o resta. Lo pagado con el móvil y los fijos salen de la cuenta.
+  // El reparto: primero lo que ya deberías tener apartado para cada fijo (la parte de los días que han pasado desde que lo pagaste),
+  // después tu ahorro (lo que te sobró las semanas anteriores) y lo que queda es para caprichos.
+  const DONDE = { efectivo: "Efectivo", banco: "Cuenta" };
+  function saldoDe(donde, hasta) {
+    const base = datos.extra.saldo?.[donde];
+    if (!base) return 0;
+    let s = base.importe;
+    for (const m of vivos()) {
+      // Solo lo apuntado después de decirle cuánto tenías, y con fecha de ese día o posterior (lo anterior ya estaba descontado)
+      if ((m.donde || "banco") !== donde || m.creado < base.desde || m.fecha < base.desde.slice(0, 10) || (hasta && m.creado >= hasta)) continue;
+      s += m.tipo === "ingreso" ? m.importe : -m.importe;
+    }
+    return s;
+  }
+  const diasEntre = (a, b) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 864e5);
+  const cargoEnMes = (f, mes) => { const [a, m] = mes.split("-").map(Number), ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate(); return `${mes}-${String(Math.min(f.dia, ultimo)).padStart(2, "0")}`; };
+  // Lo que ya deberías tener apartado para un fijo: si el grado (219 €) se paga el día 5 y hoy es 21, la parte de 16 de sus 31 días
+  function fondoFijo(f, hoy) {
+    let ultimo = cargoEnMes(f, claveMes(hoy));
+    if (ultimo > hoy) ultimo = cargoEnMes(f, moverMes(claveMes(hoy), -1));
+    const proximo = cargoEnMes(f, moverMes(claveMes(ultimo), 1));
+    return { necesita: Math.round((f.importe * diasEntre(ultimo, hoy)) / diasEntre(ultimo, proximo)), proximo };
+  }
+  function repartoDinero(hoy = hoyISO(), hasta) {
+    const s = datos.extra.saldo;
+    if (!s) return null;
+    const efectivo = saldoDe("efectivo", hasta), banco = saldoDe("banco", hasta), total = efectivo + banco;
+    const fijos = (datos.extra.fijos || []).filter((f) => f.tipo === "gasto" && Number.isInteger(f.importe) && (!f.desde || f.desde <= claveMes(hoy)))
+      .map((f) => ({ f, ...fondoFijo(f, hoy) })).sort((a, b) => a.proximo.localeCompare(b.proximo));
+    let resto = Math.max(0, total);
+    for (const x of fijos) { x.apartado = Math.min(resto, x.necesita); resto -= x.apartado; x.falta = x.necesita - x.apartado; }
+    const libre = resto, ahorro = Math.min(resto, s.ahorro || 0);
+    return { efectivo, banco, total, fijos, faltan: fijos.reduce((t, x) => t + x.falta, 0), libre, ahorro, ahorroGuardado: s.ahorro || 0, caprichos: resto - ahorro };
+  }
+  // Al empezar una semana nueva (o un mes, según cobres), lo que te quedó libre la anterior pasa a tu ahorro: «lo que me sobre»
+  function cerrarPeriodoDinero() {
+    const s = datos.extra.saldo, pe = periodo();
+    if (!s || (s.cerrado && s.cerrado >= pe.ini)) return;
+    const antes = s.cerrado ? repartoDinero(masDiasISO(pe.ini, -1), pe.ini + "T00:00:00") : null;
+    setExtra("saldo", { ...s, ahorro: antes ? antes.libre : s.ahorro || 0, cerrado: pe.ini });
+  }
+  // El presupuesto pasa a ser lo que te queda para caprichos (más lo ya gastado este periodo): así «Te quedan», los duelos y los límites siguen igual
+  function ajustarPresupuestoSaldo() {
+    cerrarPeriodoDinero();
+    const r = repartoDinero();
+    if (!r) return;
+    const p = r.caprichos + gastoPeriodo(periodo()) || null;
+    if (p === datos.presupuesto) return;
+    Object.assign(datos, { presupuesto: p, presupuestoAct: new Date().toISOString(), presupuestoPend: true });
+    guardar(); setTimeout(sincronizar, 0);
+  }
+  function pintarDinero(esActual) {
+    const caja = $("#tu-dinero"), r = repartoDinero();
+    // En Ajustes: con «Tu dinero» ya no hay presupuesto a mano ni «Según lo que cobro» (salen de tu dinero)
+    $("#ajustes-dinero").textContent = r ? `${euros(r.total)} · Ajustar` : "Empezar";
+    $("#fila-presupuesto").hidden = Boolean(r); $("#presupuesto-variable").closest("label").hidden = Boolean(r);
+    let oculto = false; try { oculto = localStorage.getItem("bolsillo.avisoDinero") === "no"; } catch {}
+    caja.hidden = !esActual || (!r && oculto);
+    if (caja.hidden) return;
+    if (!r) {
+      caja.innerHTML = `<div class="dinero-empezar"><div><b>¿Cuánto dinero tienes?</b><span>Dile a Bolsillo lo que llevas en efectivo y en la cuenta, y te dice cuánto apartar para tus fijos y cuánto te queda para caprichos.</span></div>
+        <button class="boton-azul" id="empezar-dinero">Empezar</button><button class="cerrar-aviso" id="ocultar-dinero" aria-label="Ocultar">×</button></div>`;
+      $("#empezar-dinero").addEventListener("click", configurarDinero);
+      $("#ocultar-dinero").addEventListener("click", () => { try { localStorage.setItem("bolsillo.avisoDinero", "no"); } catch {} pintar(); });
+      return;
+    }
+    // Lo que tienes es lo mismo mires lo que mires; lo que cambia con «Mes» o «Semana» es lo cobrado y gastado, y hasta cuándo te tiene que durar lo de caprichos
+    const pe = periodo(), hoy = hoyISO(), enMes = vistaRango !== "semana";
+    const ini = enMes ? claveMes(hoy) + "-01" : pe.semanal ? pe.ini : inicioSemana(hoy), fin = enMes ? moverMes(claveMes(hoy), 1) + "-01" : masDiasISO(ini, 7);
+    const dias = Math.max(1, diasEntre(hoy, fin)), hasta = enMes ? "hasta fin de mes" : pe.semanal ? `hasta el ${pe.nombreDia}` : "hasta el domingo";
+    const del = vivos().filter((m) => m.fecha >= ini && m.fecha < fin);
+    const cobrado = del.filter((m) => m.tipo === "ingreso" && m.origen !== "ajuste").reduce((t, m) => t + m.importe, 0), gastado = del.filter((m) => m.tipo === "gasto" && cuenta(m)).reduce((t, m) => t + m.importe, 0);
+    const [ent, dec] = euros(r.total).replace(" €", "").split(",");
+    const fila = (color, nombre, sub, cifra, clase = "") => `<div class="dinero-fila ${clase}"><span class="dinero-punto" style="--c:${color}"></span><div class="medio"><b>${nombre}</b><small>${sub}</small></div><b class="num">${euros(cifra)}</b></div>`;
+    const partes = [...r.fijos.map((x) => [catDe("gasto", x.f.cat)[3], x.apartado]), ["#5856d6", r.ahorro], ["var(--acento)", r.caprichos]].filter(([, c]) => c > 0);
+    caja.innerHTML = `<div class="dinero-cabeza"><span class="etiqueta">Tienes</span><button class="enlace" id="ajustar-saldo">Ajustar</button></div>
+      <div class="total num">${r.total < 0 ? "−" : ""}${ent.replace("-", "")}<small>,${dec} €</small></div>
+      <p class="dinero-sitios">${euros(r.efectivo)} en efectivo · ${euros(r.banco)} en la cuenta</p>
+      <p class="dinero-periodo">${enMes ? "Este mes" : "Esta semana"} has cobrado <b class="num">${euros(cobrado)}</b> y gastado <b class="num">${euros(gastado)}</b>${datos.extra.fijos?.length ? " (sin contar tus fijos)" : ""}.</p>
+      ${r.total > 0 ? `<div class="barra dinero-barra" role="img" aria-label="Cómo se reparte tu dinero">${partes.map(([c, v]) => `<i style="width:${(v / r.total) * 100}%;background:${c}"></i>`).join("")}</div>` : ""}
+      <div class="dinero-filas">
+        ${r.fijos.map((x) => fila(catDe("gasto", x.f.cat)[3], esc(x.f.nombre), `${euros(x.f.importe)} el día ${Number(x.proximo.slice(8))}${x.falta ? ` · <span class="pasado">faltan ${euros(x.falta)}</span>` : " · al día"}`, x.apartado)).join("")}
+        ${fila("#5856d6", "Ahorro personal", r.ahorroGuardado > r.ahorro ? `Lo que te sobró · <span class="pasado">${euros(r.ahorroGuardado - r.ahorro)} van a tus fijos</span>` : "Lo que te sobra cada semana", r.ahorro)}
+        ${fila("var(--acento)", "Para tus caprichos", r.caprichos > 0 ? `${euros(Math.floor(r.caprichos / dias))} al día ${hasta}` : r.faltan ? "Primero, tus fijos" : "Nada libre por ahora", r.caprichos, "destacada")}
+      </div>
+      ${r.faltan ? `<p class="dinero-aviso">Para ir al día con tus fijos te faltan <b class="num">${euros(r.faltan)}</b>. Lo que cobres irá primero ahí.</p>` : ""}`;
+    $("#ajustar-saldo").addEventListener("click", ajustarDinero);
+  }
+  $("#ajustes-dinero").addEventListener("click", () => { cerrarHoja(); setTimeout(() => (datos.extra.saldo ? ajustarDinero() : configurarDinero()), 280); });
+  const leerEuros = (t) => (String(t || "").trim() ? aCentimos(t) || 0 : 0);
+  async function configurarDinero() {
+    const v = await dialogo({ titulo: "¿Cuánto dinero tienes?", texto: "Lo que tienes ahora mismo. A partir de aquí, cada gasto e ingreso que apuntes lo suma o lo resta solo.", boton: "Guardar",
+      campos: [{ id: "efectivo", etiqueta: "En efectivo", placeholder: "0 €", decimal: true, opcional: true }, { id: "banco", etiqueta: "En la cuenta", placeholder: "0 €", decimal: true, opcional: true }] });
+    if (!v) return;
+    const desde = new Date().toISOString();
+    setExtra("saldo", { efectivo: { importe: leerEuros(v.efectivo), desde }, banco: { importe: leerEuros(v.banco), desde }, ahorro: 0, cerrado: periodo().ini });
+    if (datos.extra.variable) setExtra("variable", null); // «Tu dinero» sustituye a «Según lo que cobro» y sus sobres
+    pintar(); avisar("Listo: ya sabes cuánto tienes y cómo se reparte");
+  }
+  // «Ajustar»: pones lo que dice tu banco o tu cartera; la diferencia se apunta como «Sin apuntar» para que todo cuadre
+  async function ajustarDinero() {
+    const r = repartoDinero(), a = (c) => (c / 100).toLocaleString("es-ES", { maximumFractionDigits: 2, useGrouping: false });
+    const v = await dialogo({ titulo: "Ajustar lo que tienes", texto: "Pon lo que tienes de verdad. Si no cuadra, la diferencia se apunta como «Sin apuntar».", boton: "Ajustar",
+      campos: [{ id: "efectivo", etiqueta: "En efectivo", valor: a(r.efectivo), decimal: true, opcional: true }, { id: "banco", etiqueta: "En la cuenta", valor: a(r.banco), decimal: true, opcional: true }] });
+    if (!v) return;
+    let n = 0;
+    for (const d of ["efectivo", "banco"]) {
+      const dif = leerEuros(v[d]) - r[d];
+      if (!dif) continue;
+      n++;
+      datos.movs.push(tocado({ id: Date.now().toString(36) + d.slice(0, 1) + Math.random().toString(36).slice(2, 5), tipo: dif < 0 ? "gasto" : "ingreso", cat: dif < 0 ? "otros" : "devolucion",
+        importe: Math.abs(dif), nota: "Sin apuntar", fecha: hoyISO(), creado: new Date().toISOString(), origen: "ajuste", donde: d }));
+    }
+    guardar(); sincronizar(); pintar();
+    avisar(n ? "Ajustado: la diferencia está apuntada como «Sin apuntar»" : "Ya cuadraba");
+  }
+  // ---------- Tus horas: si trabajas por horas, apuntas las que haces y sabes cuánto vas a cobrar ----------
+  // horas = { precio (céntimos la hora), apuntes: [{ id, fecha, min, nota, cobro }] }. «cobro» es el ingreso de Trabajo con el que se pagaron:
+  // si ese ingreso se borra, esas horas vuelven a estar sin cobrar.
+  const textoHoras = (min) => (min / 60).toLocaleString("es-ES", { maximumFractionDigits: 2 }) + " h";
+  // «4,5», «4.5» o «4:30» → 270 minutos
+  function leerHoras(t) {
+    const s = String(t || "").trim(), hm = s.match(/^(\d{1,2})[:h]\s*(\d{1,2})$/);
+    const min = hm ? Number(hm[1]) * 60 + Number(hm[2]) : Math.round(Number(s.replace(",", ".")) * 60);
+    return Number.isFinite(min) && min > 0 && min <= 24 * 60 ? min : 0;
+  }
+  function horasPendientes() {
+    const h = datos.extra.horas;
+    if (!h) return [];
+    const ids = new Set(vivos().map((m) => m.id));
+    return (h.apuntes || []).filter((a) => !a.cobro || !ids.has(a.cobro)).sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
+  }
+  const valorHoras = (min) => Math.round((min * (datos.extra.horas?.precio || 0)) / 60);
+  function pintarHoras(esActual) {
+    const caja = $("#tus-horas"), h = datos.extra.horas;
+    $("#precio-horas").textContent = h?.precio ? `${euros(h.precio)}/h` : "";
+    let oculto = false; try { oculto = localStorage.getItem("bolsillo.avisoHoras") === "no"; } catch {}
+    // Sin precio: solo se sugiere a quien ya apunta ingresos de Trabajo
+    const cobraTrabajo = vivos().some((m) => m.tipo === "ingreso" && m.cat === "trabajo" && m.fecha >= masDiasISO(hoyISO(), -60));
+    caja.hidden = !esActual || (!h?.precio && (oculto || !cobraTrabajo));
+    if (caja.hidden) return;
+    if (!h?.precio) {
+      caja.innerHTML = `<div class="dinero-empezar"><div><b>¿Trabajas por horas?</b><span>Pon cuánto cobras la hora, apunta las que haces y Bolsillo te dice cuánto vas a cobrar.</span></div>
+        <button class="boton-azul" id="empezar-horas">Empezar</button><button class="cerrar-aviso" id="ocultar-horas" aria-label="Ocultar">×</button></div>`;
+      $("#empezar-horas").addEventListener("click", configurarHoras);
+      $("#ocultar-horas").addEventListener("click", () => { try { localStorage.setItem("bolsillo.avisoHoras", "no"); } catch {} pintar(); avisar("Lo tienes en Ajustes → Tus horas"); });
+      return;
+    }
+    const pend = horasPendientes(), min = pend.reduce((t, a) => t + a.min, 0), vistos = pend.slice(0, 6);
+    const dia = (f) => (f === hoyISO() ? "Hoy" : f === masDiasISO(hoyISO(), -1) ? "Ayer" : new Date(f + "T12:00:00").toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }));
+    caja.innerHTML = `<div class="dinero-cabeza"><span class="etiqueta">Tus horas · ${euros(h.precio)}/h</span><button class="enlace" id="apuntar-horas">Apuntar</button></div>
+      ${min ? `<div class="horas-total num">${textoHoras(min)} sin cobrar<small>unos ${euros(valorHoras(min))}</small></div>
+      <div class="dinero-filas">${vistos.map((a) => `<div class="dinero-fila horas-fila"><span class="dinero-punto" style="--c:#ff9500"></span><div class="medio"><b>${dia(a.fecha)}${a.nota ? ` · ${esc(a.nota)}` : ""}</b><small>${textoHoras(a.min)}</small></div>
+        <b class="num">${euros(valorHoras(a.min))}</b><button class="horas-quitar" data-quitar-horas="${a.id}" aria-label="Quitar ${textoHoras(a.min)} de ${dia(a.fecha)}">×</button></div>`).join("")}</div>
+      ${pend.length > vistos.length ? `<p class="horas-nota">Y ${pend.length - vistos.length} día${pend.length - vistos.length === 1 ? "" : "s"} más.</p>` : ""}
+      <p class="horas-nota">Cuando te paguen, apúntalo como ingreso de Trabajo y estas horas contarán como cobradas.</p>`
+      : `<p class="horas-nota" style="margin-top:4px">Todo cobrado. Apunta las horas que hagas y verás cuánto te deben.</p>`}`;
+    $("#apuntar-horas").addEventListener("click", apuntarHoras);
+    caja.querySelectorAll("[data-quitar-horas]").forEach((b) => b.addEventListener("click", () => quitarHoras(b.dataset.quitarHoras)));
+  }
+  $("#abrir-horas").addEventListener("click", () => { cerrarHoja(); setTimeout(configurarHoras, 280); });
+  async function configurarHoras() {
+    const h = datos.extra.horas, a = (c) => (c / 100).toLocaleString("es-ES", { maximumFractionDigits: 2, useGrouping: false });
+    const v = await dialogo({ titulo: "¿Cuánto cobras la hora?", texto: "Lo que te pagan por cada hora de trabajo. Si lo dejas vacío, dejas de apuntar horas.", boton: "Guardar",
+      campos: [{ id: "precio", etiqueta: "Cada hora", placeholder: "Por ejemplo 8 €", valor: h?.precio ? a(h.precio) : "", decimal: true, opcional: Boolean(h) }] });
+    if (!v) return;
+    const precio = leerEuros(v.precio);
+    if (!precio) { if (h) { setExtra("horas", null); pintar(); avisar("Ya no apuntas horas"); } return; }
+    setExtra("horas", { apuntes: [], ...h, precio });
+    pintar(); avisar(h ? `Ahora cobras ${euros(precio)} la hora` : "Listo: apunta tus horas desde la pantalla principal");
+  }
+  async function apuntarHoras() {
+    const v = await dialogo({ titulo: "Apuntar horas", texto: "Las de hoy. Si es de otro día, ponlo en la nota.", boton: "Apuntar",
+      campos: [{ id: "horas", etiqueta: "Horas", placeholder: "Por ejemplo 4,5", decimal: true }, { id: "nota", etiqueta: "Nota", placeholder: "Opcional", opcional: true }] });
+    if (!v) return;
+    const min = leerHoras(v.horas);
+    if (!min) return avisar("Pon las horas así: 4,5 o 4:30");
+    const h = datos.extra.horas, apunte = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), fecha: hoyISO(), min, nota: v.nota.slice(0, 40) };
+    setExtra("horas", { ...h, apuntes: [...(h.apuntes || []), apunte].slice(-120) }); // cabe de sobra en un ajuste de la nube
+    pintar(); avisar(`+${textoHoras(min)} · unos ${euros(valorHoras(min))}`);
+  }
+  function quitarHoras(id) {
+    const h = datos.extra.horas, apunte = h.apuntes.find((a) => a.id === id);
+    if (!apunte) return;
+    setExtra("horas", { ...h, apuntes: h.apuntes.filter((a) => a.id !== id) });
+    pintar();
+    avisar(`Quitadas ${textoHoras(apunte.min)}`, { texto: "Deshacer", fn: () => { const ahora = datos.extra.horas; if (ahora) { setExtra("horas", { ...ahora, apuntes: [...ahora.apuntes, apunte] }); pintar(); } } });
+  }
+  // Al apuntar lo que te pagan (ingreso de Trabajo), las horas sin cobrar hasta ese día pasan a cobradas: se dice si cuadra con lo esperado
+  function cobrarHoras(mv) {
+    const h = datos.extra.horas, pend = horasPendientes().filter((a) => a.fecha <= mv.fecha);
+    if (!h?.precio || !pend.length) return "";
+    const ids = new Set(pend.map((a) => a.id)), min = pend.reduce((t, a) => t + a.min, 0), esperado = valorHoras(min), dif = mv.importe - esperado;
+    setExtra("horas", { ...h, apuntes: h.apuntes.map((a) => (ids.has(a.id) ? { ...a, cobro: mv.id } : a)) });
+    return `Por tus ${textoHoras(min)} esperabas unos ${euros(esperado)}` + (Math.abs(dif) < 100 ? ": cuadra" : dif > 0 ? `: ${euros(dif)} de más` : `: faltan ${euros(-dif)}`);
+  }
   // Si has elegido una hucha, lo que ahorras de cada cobro entra en ella solo. Se guarda cuánto ha entrado de cada periodo:
   // si luego cambia lo cobrado (otro ingreso, uno borrado), solo se corrige la diferencia y nunca entra dos veces.
   function aportarAHucha(pe, ahorro) {
@@ -916,6 +1151,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   }
   const huchaDelAhorro = () => (datos.extra.huchas || []).find((x) => x.id === datos.extra.variable?.hucha);
   function ajustarPresupuestoVariable() {
+    if (datos.extra.saldo) return; // con «Tu dinero», el presupuesto sale de ahí
     const s = sobres();
     if (!s) return;
     aportarAHucha(periodo(), s.ahorro);
@@ -935,13 +1171,14 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     for (const x of vivos()) if (x.tipo === "gasto" && cuenta(x) && x.fecha >= ini && x.fecha < fin) diario[Math.round((Date.parse(x.fecha) - Date.parse(ini)) / 864e5)] += x.importe;
     const acumulado = [];
     diario.slice(0, diaHoy).reduce((s, v, i) => (acumulado[i] = s + v), 0);
+    const meta = datos.extra.saldo ? "lo que tienes para caprichos" : "tu presupuesto";
     const llevas = acumulado[diaHoy - 1], prevision = diaHoy >= 3 ? Math.round((llevas / diaHoy) * dias) : null; // con uno o dos días, la previsión no dice nada
     const W = 320, H = 120, techo = Math.max(p, llevas, prevision || 0) * 1.08;
     const x = (i) => (i / (dias - 1)) * W, y = (v) => H - (v / techo) * H;
     const linea = acumulado.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
     const hallazgo = prevision === null ? `Llevas ${euros(llevas)} de ${euros(p)}.`
-      : prevision > p ? `<b class="pasado">A este ritmo acabarías con ${euros(prevision)}: ${euros(prevision - p)} más que tu presupuesto.</b>`
-      : `A este ritmo acabarías con <b class="num">${euros(prevision)}</b>, ${euros(p - prevision)} por debajo de tu presupuesto.`;
+      : prevision > p ? `<b class="pasado">A este ritmo acabarías con ${euros(prevision)}: ${euros(prevision - p)} más de ${meta}.</b>`
+      : `A este ritmo acabarías con <b class="num">${euros(prevision)}</b>, ${euros(p - prevision)} menos de ${meta}.`;
     ritmoDatos = { ini, acumulado, dias, p, x: (i) => (x(i) / W) * 100, y: (v) => (y(v) / H) * 100 };
     return `<div class="ritmo">
       <p class="ritmo-hallazgo">${hallazgo}</p>
@@ -1063,7 +1300,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   }
 
   function pintar() {
-    ajustarPresupuestoVariable();
+    ajustarPresupuestoVariable(); ajustarPresupuestoSaldo();
     const semana = vistaRango === "semana", hoyIni = inicioSemana(hoyISO()), fechaTope = ultimaFecha(), topeSemana = inicioSemana(fechaTope);
     if (semana && !semanaVista) semanaVista = hoyIni;
     if (semana && semanaVista > topeSemana) semanaVista = topeSemana;
@@ -1104,7 +1341,8 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
       etiqueta = pe.semanal ? (pe.diaHoy === 1 ? "Gastado hoy, día de cobro" : `Gastado desde el ${pe.nombreDia}`) : `Gastado desde tu paga del ${pe.diaPaga}`; hasta = "hasta tu paga";
     }
     let barra = "", lineas = "";
-    if (p) {
+    // Con «Tu dinero», lo que te queda ya lo dice la tarjeta de arriba: aquí no se habla de un presupuesto que no has puesto tú
+    if (p && !datos.extra.saldo) {
       const pct = Math.min(100, (gastadoR / p) * 100), queda = p - gastadoR;
       const color = pct >= 100 ? "var(--rojo)" : pct >= 85 ? "#ff9f0a" : "var(--acento)";
       barra = `<div class="barra" role="img" aria-label="${Math.round(pct)} % del presupuesto"><i style="width:${pct}%;background:${color}"></i></div>`;
@@ -1113,7 +1351,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
       if (esActual && queda > 0) lineas += `<p class="linea-resumen" style="margin:6px 0 0;display:block">Puedes gastar <b class="num">${euros(Math.floor(queda / quedanDias))}</b> al día ${hasta === "hasta tu paga" ? `hasta tu paga (${quedanDias} día${quedanDias === 1 ? "" : "s"})` : `durante ${quedanDias === 1 ? `hoy, último día ${semana ? "de la semana" : "del mes"}` : `${quedanDias} días`}`}</p>`;
     } else if (usaPeriodo) lineas = `<div class="linea-resumen" style="margin-top:10px"><span>${quedanDias} día${quedanDias === 1 ? "" : "s"} ${hasta}</span></div>`;
     // Según lo que cobras: los tres sobres (fijos, ahorro, para gastar) o, si aún no has apuntado lo de este periodo, un botón para hacerlo
-    if (datos.extra.variable && enPeriodo) {
+    if (datos.extra.variable && !datos.extra.saldo && enPeriodo) {
       const s = sobres(pe), periodoTexto = pe.semanal ? "Esta semana" : "Este mes";
       const hucha = huchaDelAhorro();
       lineas += s ? `<div class="sobres">${[["Fijos", s.fijos], [hucha ? `A «${esc(hucha.nombre)}»` : "Ahorras", s.ahorro], ["Para gastar", s.gastar]].filter(([, c], i) => c || i === 2)
@@ -1123,7 +1361,9 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     }
     const media = diaHoy ? Math.round(gastadoR / diaHoy) : 0;
     const comparacion = compararConAntes(esActual, diaHoy, gastadoR, semana ? semanaVista : null);
-    const ritmo = esActual && p ? graficoRitmo(usaPeriodo ? pe.ini : semana ? semanaVista : mesVisto + "-01", usaPeriodo ? pe.largo : semana ? 7 : diasMes, diaHoy, p) : (ritmoDatos = null, "");
+    // Con «Tu dinero», el gráfico compara con lo que tienes para caprichos (lo libre ahora más lo ya gastado en lo que ves)
+    const pRitmo = datos.extra.saldo ? (repartoDinero()?.caprichos || 0) + gastadoR : p;
+    const ritmo = esActual && pRitmo ? graficoRitmo(usaPeriodo ? pe.ini : semana ? semanaVista : mesVisto + "-01", usaPeriodo ? pe.largo : semana ? 7 : diasMes, diaHoy, pRitmo) : (ritmoDatos = null, "");
     const [ent, dec] = euros(gastadoR).replace(" €", "").split(",");
     $("#resumen").innerHTML = `<div class="etiqueta">${etiqueta}</div>
       <div class="total num">${ent}<small>,${dec} €</small></div>${comparacion}${barra}${lineas}${ritmo}
@@ -1131,6 +1371,8 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
       <div class="mini"><span class="etiqueta">Ingresos</span><b class="num ${ingresadoR ? "ingreso" : ""}">${ingresadoR ? "+" : ""}${euros(ingresadoR)}</b></div></div>
       ${esActual ? `<button class="boton-permitir" id="permitir">${ico("tag", "ico-texto")}¿Me lo puedo permitir?</button>` : ""}`;
     engancharRitmo();
+    pintarDinero(esActual);
+    pintarHoras(esActual);
 
     // Por categoría
     const porCat = {};
@@ -1223,6 +1465,11 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
 
   // ---------- Añadir / editar ----------
   let tipo = "gasto", cat = "comida", editando = null, catElegida = false; // catElegida: la tocó a mano, ya no se adivina
+  // De dónde sale (solo con «Tu dinero»): lo que elegiste la última vez, o la cuenta
+  let donde = "banco";
+  const ultimoDonde = () => { try { return localStorage.getItem("bolsillo.donde") || "banco"; } catch { return "banco"; } };
+  const ponerDonde = (d) => { donde = d; document.querySelectorAll("[data-donde]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.donde === d))); };
+  document.querySelectorAll("[data-donde]").forEach((b) => b.addEventListener("click", () => { ponerDonde(b.dataset.donde); try { localStorage.setItem("bolsillo.donde", b.dataset.donde); } catch {} }));
   const importe = $("#importe"), nota = $("#nota"), fecha = $("#fecha"), guardarBtn = $("#guardar-mov");
   function pintarCats() {
     $("#cats").innerHTML = CATS[tipo].map(([id, nombre, icono, color]) => `<button data-cat="${id}" aria-pressed="${id === cat}"><span class="icono" style="--c:${color}">${ico(icono)}</span>${nombre}</button>`).join("");
@@ -1247,6 +1494,8 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     $("[data-abrir-prestamo]").hidden = Boolean(mv); // un préstamo no es un movimiento: solo al apuntar uno nuevo
     catElegida = Boolean(mv);
     $("#fila-oculto").hidden = !sync.clave; // solo tiene sentido con nube (los círculos están en ella)
+    $("#fila-donde").hidden = !datos.extra.saldo;
+    ponerDonde(mv?.donde || (mv && ["applepay", "wallet", "fijo"].includes(mv.origen) ? "banco" : ultimoDonde()));
     $("#mov-oculto").checked = Boolean(mv && (datos.extra.ocultos || []).includes(mv.id));
     pintarRapidos();
     validar();
@@ -1288,7 +1537,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   $("#rapidos").addEventListener("click", (e) => {
     const b = e.target.closest("[data-rapido]"); if (!b) return;
     const base = datos.movs.find((x) => x.id === b.dataset.rapido); if (!base) return;
-    const mv = tocado({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo: "gasto", cat: base.cat, importe: base.importe, nota: base.nota, fecha: hoyISO(), creado: new Date().toISOString(), origen: "app" });
+    const mv = tocado({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo: "gasto", cat: base.cat, importe: base.importe, nota: base.nota, fecha: hoyISO(), creado: new Date().toISOString(), origen: "app", donde: base.donde || ultimoDonde() });
     datos.movs.push(mv); guardar(); sincronizar();
     irAFecha(mv.fecha); cerrarHoja(); pintar();
     if (navigator.vibrate) navigator.vibrate(10);
@@ -1303,8 +1552,9 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     const c = aCentimos(importe.value);
     if (!c || !fecha.value) return;
     const mv = tocado({ id: editando?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo, cat, importe: c, nota: nota.value.trim().slice(0, 60), fecha: fecha.value,
-      creado: editando?.creado || new Date().toISOString(), origen: editando?.origen || "app" });
+      creado: editando?.creado || new Date().toISOString(), origen: editando?.origen || "app", donde });
     if (editando) datos.movs = datos.movs.map((x) => (x.id === mv.id ? mv : x)); else datos.movs.push(mv);
+    const horas = !editando && tipo === "ingreso" && cat === "trabajo" ? cobrarHoras(mv) : "";
     // Oculto en los círculos: lista de ids que se sincroniza como ajuste (el servidor la respeta al enseñar el muro)
     const ocultos = datos.extra.ocultos || [], oculto = sync.clave && $("#mov-oculto").checked;
     if (oculto !== ocultos.includes(mv.id)) setExtra("ocultos", oculto ? [...ocultos, mv.id].slice(-500) : ocultos.filter((x) => x !== mv.id));
@@ -1313,7 +1563,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     cerrarHoja(); pintar();
     // Una fecha futura casi siempre es un despiste: se avisa (y la vista se va a esa semana o mes para que se vea)
     if (mv.fecha > hoyISO()) avisar(`Ojo: lo has puesto en el futuro, el ${new Date(mv.fecha + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}`);
-    else avisar(editando ? "Cambios guardados" : avisoLimite(mv) || `${tipo === "gasto" ? "−" : "+"}${euros(c)} · ${catDe(tipo, cat)[1]}`);
+    else avisar(editando ? "Cambios guardados" : horas || avisoLimite(mv) || `${tipo === "gasto" ? "−" : "+"}${euros(c)} · ${catDe(tipo, cat)[1]}`);
     if (navigator.vibrate) navigator.vibrate(10);
   });
   // Borrar sin preguntar, con «Deshacer» (más rápido y da menos miedo que un «¿Seguro?»)
@@ -1665,8 +1915,8 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   document.querySelectorAll("[data-vista]").forEach((b) => b.addEventListener("click", () => irVista(b.dataset.vista)));
 
   // Gasto creado desde fuera del formulario (tu parte de un gasto de grupo)
-  function anadirMov({ tipo, cat, importe, nota, fecha, id, origen }) {
-    datos.movs.push(tocado({ id: id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo, cat, importe, nota: nota || "", fecha: fecha || hoyISO(), creado: new Date().toISOString(), origen: origen || "app" }));
+  function anadirMov({ tipo, cat, importe, nota, fecha, id, origen, donde: de }) {
+    datos.movs.push(tocado({ id: id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo, cat, importe, nota: nota || "", fecha: fecha || hoyISO(), creado: new Date().toISOString(), origen: origen || "app", donde: de || "banco" }));
     guardar(); pintar(); sincronizar();
   }
 
@@ -1714,7 +1964,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   // API para extras.js
   window.B = {
     get datos() { return datos; }, get sync() { return sync; }, get mesVisto() { return mesVisto; },
-    CATS, vivos, euros, esc, catDe, avisar, periodo, periodoLimites, limitesSemanales, gastoPeriodo, adivinarCat, conCentimos, sobres, pagaSemanal, presupuestoMes, presupuestoSemana, DIAS_SEMANA, dialogo, abrirHoja, cerrarHoja, pintar, hoyISO, nombreMes, api, aCentimos, setExtra, crearNube, irVista, anadirMov,
+    CATS, vivos, euros, esc, catDe, avisar, periodo, repartoDinero, saldoDe, periodoLimites, limitesSemanales, gastoPeriodo, adivinarCat, conCentimos, sobres, pagaSemanal, presupuestoMes, presupuestoSemana, DIAS_SEMANA, dialogo, abrirHoja, cerrarHoja, pintar, hoyISO, nombreMes, api, aCentimos, setExtra, crearNube, irVista, anadirMov,
     ponerPresupuesto: (c) => { Object.assign(datos, { presupuesto: c, presupuestoAct: new Date().toISOString(), presupuestoPend: true }); guardar(); pintar(); sincronizar(); },
     alPintar, alCambiarVista, alSincronizar,
   };

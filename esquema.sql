@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS movs (
   importe INTEGER NOT NULL,           -- céntimos
   nota TEXT NOT NULL DEFAULT '', fecha TEXT NOT NULL, creado TEXT NOT NULL, actualizado TEXT NOT NULL,
   borrado INTEGER NOT NULL DEFAULT 0, origen TEXT NOT NULL DEFAULT 'app', servido INTEGER NOT NULL,
+  donde TEXT,                         -- de dónde sale: 'efectivo' o 'banco' (NULL: sin decir)
   PRIMARY KEY (usuario, id)
 );
 CREATE INDEX IF NOT EXISTS movs_usuario_servido ON movs (usuario, servido);

@@ -378,3 +378,4 @@ img { max-width: 100%; display: block; }
 @media (min-width: 768px) { .autor__titulo { font-size: 32px; line-height: 38px; } }
 /* En el carrusel del móvil las capturas ya están ahí: no esperan a aparecer (las de la derecha no entran en pantalla hasta que se desliza) */
 @media (max-width: 767px) { .js .captura.aparece { opacity: 1; transform: none; } }
+.pie__creditos { margin: 0; font-size: 13px; line-height: 1.5; color: #c9c9c9; } .pie__creditos a { color: inherit; }
