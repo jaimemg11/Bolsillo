@@ -9,7 +9,20 @@
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <script>
   // Tema elegido en Ajustes → Apariencia (modo claro u oscuro y color): se pone antes de pintar para que no parpadee
-  try { const t = JSON.parse(localStorage.getItem("bolsillo.tema") || "{}"); if (t.modo) document.documentElement.dataset.tema = t.modo; if (t.color) { document.documentElement.style.setProperty("--acento", t.color); document.documentElement.style.setProperty("--acento-fondo", t.color); } } catch {}
+  // El color elegido se ajusta lo justo para leerse bien (contraste 4,5:1): más oscuro para el modo claro y los botones con letra blanca,
+  // y más claro, si hace falta, para el texto en modo oscuro
+  window.ponerColor = (c) => {
+    const raiz = document.documentElement;
+    if (!c) { delete raiz.dataset.color; raiz.style.removeProperty("--color-claro"); raiz.style.removeProperty("--color-oscuro"); return; }
+    const lum = (rgb) => rgb.map((v) => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
+    const hex = (rgb) => "#" + rgb.map((v) => v.toString(16).padStart(2, "0")).join("");
+    const base = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    let claro = base, oscuro = base;
+    while ((lum([242, 242, 247]) + .05) / (lum(claro) + .05) < 4.6) claro = claro.map((v) => Math.round(v * .95)); // sobre el gris del fondo claro
+    while ((lum(oscuro) + .05) / .05 < 4.6) oscuro = oscuro.map((v) => Math.round(v + (255 - v) * .08)); // sobre el negro
+    raiz.dataset.color = "si"; raiz.style.setProperty("--color-claro", hex(claro)); raiz.style.setProperty("--color-oscuro", hex(oscuro));
+  };
+  try { const t = JSON.parse(localStorage.getItem("bolsillo.tema") || "{}"); if (t.modo) document.documentElement.dataset.tema = t.modo; if (t.color) ponerColor(t.color); } catch {}
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -32,6 +45,10 @@
   :root[data-tema="oscuro"] { color-scheme: dark; --fondo: #000000; --tarjeta: #1c1c1e; --texto: #ffffff; --suave: #98989f; --tenue: #636366; --linea: rgba(84, 84, 88, .5); --acento: #0a84ff; --acento-fondo: #0066d6;
     --verde: #30d158; --rojo: #ff453a; --relleno: rgba(118, 118, 128, .24); --sombra: none; --sobre-verde: #00210b; }
   :root[data-tema="claro"] { color-scheme: light; }
+  /* Color elegido en Apariencia: la versión oscurecida para texto en claro y para botones; la original para texto en oscuro */
+  :root[data-color] { --acento: var(--color-claro); --acento-fondo: var(--color-claro); }
+  @media (prefers-color-scheme: dark) { :root[data-color]:not([data-tema="claro"]) { --acento: var(--color-oscuro); } }
+  :root[data-color][data-tema="oscuro"] { --acento: var(--color-oscuro); }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   /* Se puede ampliar con dos dedos; un doble toque en un botón no amplía */
   button, a, input, select, label, summary { touch-action: manipulation; }
@@ -520,6 +537,7 @@
   <p class="nota-ajuste">Google Wallet avisa del pago <b>uno o dos minutos después</b>, así que el gasto tarda eso en aparecer. Comprueba que sus avisos de compras están activados: Ajustes del móvil → Aplicaciones → Google Wallet → Notificaciones → <b>Transacciones</b>. Si pagas con la app de tu banco en vez de con Google Wallet, marca esa app en el paso 2 (solo una de las dos, para no apuntar el gasto dos veces). Las notificaciones que no son pagos se ignoran solas. En Xiaomi, Huawei o Samsung, pon MacroDroid en Ajustes → Batería → <b>Sin restricciones</b> para que no se cierre.</p>
   </div>
   <button class="borrar" style="color:var(--acento)" id="probar-applepay">Probar con un pago de ejemplo</button>
+  <p class="nota-ajuste" id="ultimo-pago" aria-live="polite" hidden></p>
   <p class="nota-ajuste" id="resultado-prueba">Este botón no apunta nada ni manda avisos: solo comprueba aquí mismo que Bolsillo conecta con tu nube. Para probar el atajo de verdad, paga algo pequeño con Apple Pay y abre Bolsillo.</p>
 </section>
 
@@ -1622,7 +1640,26 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     $("#applepay-tiempo").hidden = !!ATAJO_APPLE_PAY;
     $("#applepay-mano").open = !ATAJO_APPLE_PAY && !ANDROID;
     if (ATAJO_APPLE_PAY) $("#enlace-atajo").href = ATAJO_APPLE_PAY;
+    mostrarUltimoPago();
   }).observe($("#hoja-applepay"), { attributes: true, attributeFilter: ["class"] });
+  // Lo último que ha mandado tu móvil (el atajo o MacroDroid) y qué ha hecho Bolsillo: si un pago no se apunta, aquí se ve por qué
+  async function mostrarUltimoPago() {
+    const p = $("#ultimo-pago");
+    if (!sync.clave) return (p.hidden = true);
+    try {
+      const r = await api("ultimo-pago");
+      if (!r.ok) return (p.hidden = true);
+      const u = await r.json(), de = (u.origen || (soPago === "android" ? "wallet" : "applepay")) === "wallet" ? "MacroDroid" : "el atajo";
+      p.hidden = false;
+      if (!u.cuando) return (p.innerHTML = `<b>Aún no ha llegado ningún pago de tu móvil.</b> Si ya has pagado con él, ${de} no lo ha mandado: repasa los pasos de arriba.`);
+      const cuando = haceRato(Date.parse(u.cuando)), texto = esc(u.texto || "");
+      const nombresSinCambiar = /\[(not_title|notification)\]|\{[a-z_]+\}/i.test(u.texto || ""); // MacroDroid manda el nombre de la variable, no lo que pone
+      p.innerHTML = u.resultado === "apuntado" ? `<b style="color:var(--verde)">✓ Último pago recibido ${cuando}:</b> ${texto}. Funciona.`
+        : u.resultado === "repetido" ? `<b>Último aviso ${cuando}:</b> era el mismo pago otra vez, así que no se ha apuntado dos veces.`
+        : nombresSinCambiar ? `<b class="peligro">Último aviso ${cuando}: ha llegado «${texto}».</b> MacroDroid manda los nombres en vez de lo que pone la notificación. En el cuerpo de la solicitud, bórralos y mételos con el botón de texto mágico (…): <b>Título de la notificación</b> y <b>Texto de la notificación</b>.`
+        : `<b class="peligro">Último aviso ${cuando}: «${texto || "vacío"}».</b> No lleva importe, así que no se ha apuntado. ${de === "MacroDroid" ? "Si era un pago, comprueba en el paso 2 que has marcado la app que avisa del pago (Google Wallet, Servicios de Google Play o tu banco)." : "Si le diste al ▶ en Atajos, es normal: no había pago."}`;
+    } catch { p.hidden = true; }
+  }
   async function copiar(e) {
     const b = e.currentTarget;
     try { await navigator.clipboard.writeText($("#" + b.dataset.copiar).textContent); b.textContent = "Copiado ✓"; setTimeout(() => (b.textContent = "Copiar"), 1800); }

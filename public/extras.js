@@ -1371,7 +1371,7 @@
   function aplicarTema(t) {
     const raiz = document.documentElement;
     if (t.modo) raiz.dataset.tema = t.modo; else delete raiz.dataset.tema;
-    for (const v of ["--acento", "--acento-fondo"]) t.color ? raiz.style.setProperty(v, t.color) : raiz.style.removeProperty(v); // un color elegido vale para el texto y los botones
+    window.ponerColor(t.color); // se define arriba del todo en index.html, para aplicarlo antes de pintar
     // La barra de estado del móvil, a juego con el fondo
     $$('meta[name="theme-color"]').forEach((m) => (m.content = t.modo ? (t.modo === "oscuro" ? "#000000" : "#f2f2f7") : (m.media.includes("dark") ? "#000000" : "#f2f2f7")));
     try { localStorage.setItem("bolsillo.tema", JSON.stringify(t)); } catch {}

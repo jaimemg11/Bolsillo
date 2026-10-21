@@ -22,8 +22,9 @@ function baseEnMemoria() {
 }
 
 const DB = baseEnMemoria(), env = { DB };
+// cuerpo: un objeto se manda como JSON (así llama la app); un texto, tal cual (así lo manda MacroDroid)
 const llamar = async (ruta, cuerpo, clave) => {
-  const r = await onRequest({ request: new Request("https://bolsillo.test/api/" + ruta, { method: cuerpo ? "POST" : "GET", headers: { "CF-Connecting-IP": "1.2.3.4", ...(clave ? { Authorization: "Bearer " + clave } : {}) }, body: cuerpo ? JSON.stringify(cuerpo) : undefined }),
+  const r = await onRequest({ request: new Request("https://bolsillo.test/api/" + ruta, { method: cuerpo ? "POST" : "GET", headers: { "CF-Connecting-IP": "1.2.3.4", ...(clave ? { Authorization: "Bearer " + clave } : {}) }, body: cuerpo ? (typeof cuerpo === "string" ? cuerpo : JSON.stringify(cuerpo)) : undefined }),
     env, params: { ruta: ruta.split("/") }, waitUntil: () => {} });
   return { estado: r.status, datos: await r.json() };
 };
@@ -72,6 +73,33 @@ ok((await llamar("estado", null, beto)).estado === 200, "la nube de Beto sigue i
 const antes = DB.sql.prepare("SELECT actualizado FROM ajustes WHERE clave = 'ultimo_fallo'").get()?.actualizado;
 for (let i = 0; i < 5; i++) await llamar("estado", null, "y".repeat(32));
 ok(DB.sql.prepare("SELECT actualizado FROM ajustes WHERE clave = 'ultimo_fallo'").get()?.actualizado === antes, "muchos intentos con claves falsas no escriben cada vez en la base");
+
+// Pagos que llegan solos (MacroDroid en Android, Atajos en iPhone): cómo se lee cada notificación
+ok((await llamar("ultimo-pago", null, beto)).datos.cuando === undefined, "antes de ningún pago, la guía dice que no ha llegado nada");
+const ultimoMov = () => DB.sql.prepare("SELECT importe, cat, nota FROM movs WHERE origen IN ('wallet', 'applepay') ORDER BY creado DESC, rowid DESC LIMIT 1").get();
+for (const [titulo, texto, importe, cat, tienda] of [
+  ["Mercadona", "12,50 € con Visa •••• 1234", 1250, "super", "Mercadona"],
+  ["Google Wallet", "Has pagado 3,20 € en Starbucks", 320, "comida", "Starbucks"],
+  ["BBVA", "Compra de 25,99 EUR en ZARA", 2599, "ropa", "Zara"],
+  ["Renfe Viajeros", "7,85 € · Mastercard ••5678", 785, "transporte", "Renfe Viajeros"],
+  ["Vinted", "Pago de 1.250,00 € realizado", 125000, "otros", "Vinted"],
+  ["CaixaBank", "Pago con tarjeta ••4321: 4,50 € en Telepizza", 450, "comida", "Telepizza"],
+  ["Lidl", "-18,40 €", 1840, "super", "Lidl"],
+]) {
+  const r = await llamar("pago", `${titulo} ${texto}`, beto), m = ultimoMov(); // título y texto juntos, como los manda MacroDroid
+  ok(r.datos.ok && m?.importe === importe && m.cat === cat && m.nota.toLowerCase() === tienda.toLowerCase(), `«${titulo} · ${texto}» → ${m?.importe / 100} € en ${m?.cat} (${m?.nota})`);
+}
+await llamar("pago", "Zara Reembolso de -9,99 € con Visa ••1234", beto);
+const devuelto = DB.sql.prepare("SELECT tipo, cat, importe FROM movs WHERE origen = 'wallet' ORDER BY creado DESC, rowid DESC LIMIT 1").get();
+ok(devuelto.tipo === "ingreso" && devuelto.cat === "devolucion" && devuelto.importe === 999, "un reembolso sí se apunta como devolución");
+ok((await llamar("ultimo-pago", null, beto)).datos.resultado === "apuntado", "la guía enseña el último pago apuntado");
+ok((await llamar("pago", { titulo: "Vinted", texto: "Pago de 1.250,00 € realizado" }, beto)).datos.repetido, "la misma notificación dos veces seguidas no se apunta dos veces");
+ok((await llamar("pago", { titulo: "Google Wallet", texto: "Tu tarjeta ya está lista para pagar" }, beto)).datos.ignorado, "una notificación que no es un pago se ignora");
+await llamar("pago", { titulo: "[not_title]", texto: "[notification]" }, beto);
+const ultimo = (await llamar("ultimo-pago", null, beto)).datos;
+ok(ultimo.resultado === "ignorado" && ultimo.texto === "[not_title] [notification]", "si MacroDroid manda los nombres sin cambiar, la guía lo enseña tal cual para avisar");
+await llamar("pago", { titulo: "Mercadona", texto: "4,00 €", prueba: true }, beto);
+ok((await llamar("ultimo-pago", null, beto)).datos.texto === "[not_title] [notification]", "el botón «Probar» no cuenta como pago recibido");
 
 console.log(fallos ? `\n${fallos} prueba(s) fallan` : "\nTodo bien");
 process.exitCode = fallos ? 1 : 0;

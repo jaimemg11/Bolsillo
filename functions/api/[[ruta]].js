@@ -410,8 +410,10 @@ async function cobroDesdeEnlace(id, accion, request, cuerpo, env) {
 
 // El atajo «de un toque» puede mandar la transacción entera como texto («Mercadona 12,50 €», «12,50 € en LIDL», con fecha…):
 // de ahí se sacan el importe (la cifra con céntimos o con €) y la tienda (lo que queda, sin fechas ni horas)
+// La app que avisa (Google Wallet, el banco) suele ir delante, como título: no es la tienda
+const APP_QUE_AVISA = /^(google wallet|google pay|g ?pay|wallet|bbva|santander|caixabank|la caixa|imagin|ing|openbank|sabadell|bankinter|unicaja|abanca|ibercaja|kutxabank|laboral kutxa|cajamar|cajasur|evo banco|evo|n26|revolut|bunq|myinvestor|pibank|wizink|banco \p{L}+)(?![\p{L}\d])\s*[:·-]?\s*/iu;
 function leerTransaccion(texto) {
-  const t = String(texto || "").replace(/\s+/g, " ").trim().slice(0, 300);
+  const t = String(texto || "").replace(/\s+/g, " ").trim().slice(0, 300).replace(APP_QUE_AVISA, "");
   const m = t.match(/-?\s?(?:€\s?)?\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})(?:\s?€)?|-?\s?(?:€\s?)?\d+(?:[.,]\d{1,2})?\s?(?:€|EUR\b)|-?€\s?\d+(?:[.,]\d{1,2})?/i);
   if (!m) return {};
   const tienda = (t.slice(0, m.index) + " " + t.slice(m.index + m[0].length))
@@ -426,12 +428,17 @@ function leerTransaccion(texto) {
 async function pagoWallet(usuario, cuerpo, crudo, env, esperar) {
   const texto = cuerpo.transaccion || [cuerpo.titulo, cuerpo.texto].filter(Boolean).join(" ") || crudo;
   const leido = leerTransaccion(texto);
-  if (!centimos(leido.importe)) return json({ ok: true, ignorado: true, texto: "No parece un pago: no se apunta nada" });
+  // Muchos bancos ponen las compras con un menos delante («-18,40 €»): solo es una devolución si lo dice
+  if (leido.importe && !/reembols|devoluci|devuelt|abono|refund/i.test(texto)) leido.importe = leido.importe.replace(/^-\s?/, "");
+  if (!centimos(leido.importe)) {
+    if (!cuerpo.prueba) await apuntarUltimo(usuario, env, { origen: "wallet", resultado: "ignorado", texto });
+    return json({ ok: true, ignorado: true, texto: "No parece un pago: no se apunta nada" });
+  }
   if (cuerpo.prueba) return applePay(usuario, { ...leido, prueba: true }, env, "wallet");
   const c = Math.abs(centimos(leido.importe)), hace = new Date(Date.now() - 3 * 60_000).toISOString();
   const repe = await env.DB.prepare("SELECT 1 FROM movs WHERE usuario = ?1 AND origen = 'wallet' AND importe = ?2 AND nota = ?3 AND creado > ?4 LIMIT 1")
     .bind(usuario, c, bonita(leido.tienda), hace).first();
-  if (repe) return json({ ok: true, repetido: true, texto: "Ya estaba apuntado" });
+  if (repe) { await apuntarUltimo(usuario, env, { origen: "wallet", resultado: "repetido", texto }); return json({ ok: true, repetido: true, texto: "Ya estaba apuntado" }); }
   return applePay(usuario, leido, env, "wallet", esperar);
 }
 
@@ -473,9 +480,20 @@ async function avisoLimite(usuario, mov, env) {
   return textoLimite(n - mov.importe, n, limite, NOMBRES[mov.cat] || mov.cat);
 }
 
+// El último pago que ha llegado de Atajos o MacroDroid y qué se hizo con él (lo enseña la guía, para ver si el móvil manda bien).
+// Solo se guarda el último de cada nube; se borra con «Borrar mi nube» como el resto de ajustes.
+const apuntarUltimo = (usuario, env, d) => env.DB.prepare(`INSERT INTO ajustes (usuario, clave, valor, actualizado, servido) VALUES (?1, 'ultimo_pago', ?2, ?3, 0)
+  ON CONFLICT(usuario, clave) DO UPDATE SET valor = excluded.valor, actualizado = excluded.actualizado`).bind(usuario, JSON.stringify({ ...d, texto: String(d.texto || "").replace(/\s+/g, " ").trim().slice(0, 120) }), new Date().toISOString()).run().catch(() => {});
+async function ultimoPago(usuario, env) {
+  const f = await env.DB.prepare("SELECT valor, actualizado FROM ajustes WHERE usuario = ?1 AND clave = 'ultimo_pago'").bind(usuario).first();
+  let d = {}; try { d = JSON.parse(f?.valor || "{}"); } catch {}
+  return json(f ? { ...d, cuando: f.actualizado } : {});
+}
+
 async function applePay(usuario, cuerpo, env, origen = "applepay", esperar) {
   if (!cuerpo.importe && cuerpo.transaccion) Object.assign(cuerpo, leerTransaccion(cuerpo.transaccion), { tienda: cuerpo.tienda || leerTransaccion(cuerpo.transaccion).tienda });
   const c = centimos(cuerpo.importe);
+  if (!c && !cuerpo.prueba) await apuntarUltimo(usuario, env, { origen, resultado: "sin importe", texto: [cuerpo.importe, cuerpo.tienda, cuerpo.transaccion].filter(Boolean).join(" ") });
   // Al darle al ▶ en Atajos no hay pago, así que el importe llega vacío: la clave está bien
   if (!c) return json({ error: cuerpo.importe ? `No entiendo el importe «${String(cuerpo.importe).slice(0, 40)}»` : "La clave está bien ✓, pero no ha llegado el importe. Si le has dado al ▶ es normal (no hay pago); si viene de un pago real, revisa que el campo «importe» sea la variable Entrada del atajo → Importe.", texto: "Clave correcta ✓ (falta el importe)" }, 400);
   const tienda = bonita(cuerpo.tienda);
@@ -492,6 +510,7 @@ async function applePay(usuario, cuerpo, env, origen = "applepay", esperar) {
     titulo: devolucion ? `+${euros(mov.importe)} de vuelta${tienda ? ` de ${tienda}` : ""}` : `${euros(mov.importe)}${tienda ? ` en ${tienda}` : ""}`,
     cuerpo: limite ? `Apuntado en ${NOMBRES[mov.cat] || mov.cat}. ${limite}` : `Apuntado en ${NOMBRES[mov.cat] || mov.cat}. Si no es así, tócalo y lo cambias.`, etiqueta: "pago-" + mov.id })).catch(() => 0);
   if (esperar) esperar(aviso); else await aviso;
+  await apuntarUltimo(usuario, env, { origen, resultado: "apuntado", texto });
   return json({ ok: true, texto });
 }
 
@@ -837,6 +856,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if (ruta === "sync" && request.method === "POST") return await sync(usuario, cuerpo, env);
     if (ruta === "apple-pay" && request.method === "POST") return await applePay(usuario, cuerpo, env, "applepay", waitUntil);
     if (ruta === "pago" && request.method === "POST") return await pagoWallet(usuario, cuerpo, texto, env, waitUntil);
+    if (ruta === "ultimo-pago" && request.method === "GET") return await ultimoPago(usuario, env);
     if (ruta === "gasto" && request.method === "POST") return await gastoVoz(usuario, cuerpo, env);
     if (ruta === "borrar-nube" && request.method === "POST") return await borrarNube(usuario, cuerpo, env);
     if (ruta === "grupos" && request.method === "GET") return await verGrupos(usuario, env);
