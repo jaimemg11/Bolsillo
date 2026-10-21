@@ -4,9 +4,9 @@ main = "index.js"
 compatibility_date = "2026-09-01"
 workers_dev = false
 
-# 18:00 UTC = 19:00 en invierno y 20:00 en verano (hora de España)
+# Desde las 18:00 UTC = 19:00 en invierno y 20:00 en verano (hora de España)
 [triggers]
-crons = ["0 18 * * *"]
+crons = ["0,10,20,30,40,50 18 * * *"] # seis vueltas de 10 en 10 minutos: cada una manda una tanda
 
 [[d1_databases]]
 binding = "DB"

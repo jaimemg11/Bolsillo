@@ -50,13 +50,13 @@ export function textoToque(importe, acreedor, picante) {
 
 // Recordatorios automáticos: cobros pendientes de hace 3 días o más, cada 3 días, como mucho 3 veces.
 // Solo a quien debe y tiene la app con avisos; y nunca el mismo día que le dieron un toque.
-export async function recordarCobros(env, ahora = new Date()) {
+export async function recordarCobros(env, ahora = new Date(), maximo = 200) {
   const hace3 = new Date(ahora - 3 * 864e5).toISOString(), hace20h = new Date(ahora - 20 * 36e5).toISOString();
   const { results } = await env.DB.prepare(`SELECT c.id, c.importe, c.de, c.a, g.nombre AS grupo, g.tipo, md.usuario AS deudor, ma.nombre AS acreedor
     FROM cobros c JOIN grupos g ON g.id = c.grupo
     JOIN miembros md ON md.grupo = c.grupo AND md.id = c.de JOIN miembros ma ON ma.grupo = c.grupo AND ma.id = c.a
     WHERE c.estado = 'pendiente' AND c.creado <= ?1 AND c.avisos < 3 AND (c.ultimo_aviso IS NULL OR c.ultimo_aviso <= ?1)
-      AND (c.ultimo_toque IS NULL OR c.ultimo_toque <= ?2) AND md.usuario IS NOT NULL LIMIT 200`).bind(hace3, hace20h).all();
+      AND (c.ultimo_toque IS NULL OR c.ultimo_toque <= ?2) AND md.usuario IS NOT NULL LIMIT ?3`).bind(hace3, hace20h, maximo).all();
   let enviados = 0;
   for (const c of results) {
     const llegados = await avisarUsuario(env, c.deudor, { titulo: `Recuerda: ${euros(c.importe)} a ${c.acreedor}`, cuerpo: `${c.tipo === "prestamo" ? "Lo que te dejó" : `De «${c.grupo}»`}. Toca para pagarlo en un momento.`, etiqueta: "cobro-" + c.id, url: "/c/" + c.id });

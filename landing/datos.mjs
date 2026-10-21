@@ -106,17 +106,18 @@ export const faq = [
 
 // ---------- Novedad destacada en la landing ----------
 export const novedad = {
+  id: "prestamos", menu: "Préstamos", icono: "handshake", color: "#ff9500",
   etiqueta: "Nuevo",
-  aviso: "Duelos con amigos",
-  titulo: "Reta a tus amigos a ver quién gasta menos",
-  texto: "Creas un duelo de una semana o un mes, le pasas el código a tu amigo y Bolsillo lleva el marcador. Gana quien gasta menos porcentaje de su presupuesto, así es justo aunque tengáis distinto dinero.",
+  aviso: "Préstamos entre amigos",
+  titulo: "¿Le has dejado dinero a alguien? Que no se te olvide",
+  texto: "Apuntas cuánto le has dejado y a quién, aunque no tenga la app. Si en una semana no te lo ha devuelto, Bolsillo os lo recuerda, y se lo cobras con un enlace.",
   puntos: [
-    { icono: "eye-slash", color: "#5856d6", texto: "Solo se comparten porcentajes. Nadie ve tus euros ni en qué gastas." },
-    { icono: "handshake", color: "#ff9500", texto: "Os jugáis un pacto: un café, las pizzas del viernes… Bolsillo lo recuerda." },
-    { icono: "trophy", color: "#ffb800", texto: "Trofeos, insignias de Campeón e Imbatible y tu victoria lista para stories." },
+    { icono: "bell", color: "#ff9500", texto: "A la semana os avisa a los dos, y después una vez por semana. Como mucho tres veces: recordar, no agobiar." },
+    { icono: "hand-tap", color: "#007aff", texto: "Le mandas un enlace por WhatsApp: ve tu Bizum o tu PayPal, te paga y te llega un aviso." },
+    { icono: "handshake", color: "#28a745", texto: "Si te deja dinero otra vez, se suma. Cuando te lo devuelve, lo apuntas y estáis en paz." },
   ],
-  img: "duelo.webp",
-  alt: "Duelo «¿Quién gasta menos?» en Bolsillo: marcador con Álex primero al 54,2 %, Lucía al 68,9 % y Dani al 91,5 %, y el pacto de pagar las pizzas",
+  img: "prestamo.webp",
+  alt: "Préstamo con Lucía en Bolsillo: Lucía te debe 35 €, con el historial de lo que le dejaste y el botón «Me lo ha devuelto»",
 };
 
 // ---------- Novedades: lo que trae cada versión (la más nueva arriba). Al añadir algo a la app, se apunta aquí. ----------

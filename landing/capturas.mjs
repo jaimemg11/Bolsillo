@@ -36,6 +36,14 @@ const grupoEjemplo = [{ id: "g1", nombre: "Piso Triana", codigo: "K7PQ2M", yo: "
     { id: "x2", tipo: "gasto", pagador: "m1", importe: 3600, concepto: "Internet", reparto: { m1: 1200, m2: 1200, m3: 1200 }, fecha: new Date(Date.now() - 4 * 864e5).toLocaleDateString("sv-SE") },
     { id: "x3", tipo: "gasto", pagador: "m3", importe: 2400, concepto: "Productos de limpieza", reparto: { m1: 800, m2: 800, m3: 800 }, fecha: new Date(Date.now() - 6 * 864e5).toLocaleDateString("sv-SE") }] }];
 
+// Un préstamo (ficticio): Álex le dejó 20 € y 25 € a Lucía, y ella le ha devuelto 10 €
+const haceDias = (n) => new Date(Date.now() - n * 864e5).toLocaleDateString("sv-SE");
+grupoEjemplo.push({ id: "p1", nombre: "Préstamo", tipo: "prestamo", codigo: "P9WX3D", yo: "m1",
+  miembros: [{ id: "m1", nombre: "Álex", con_app: true }, { id: "m2", nombre: "Lucía", con_app: true }],
+  gastos: [{ id: "y3", tipo: "pago", pagador: "m2", importe: 1000, concepto: "Devuelto", reparto: { m1: 1000 }, fecha: haceDias(2) },
+    { id: "y2", tipo: "gasto", pagador: "m1", importe: 2500, concepto: "Entradas del concierto", reparto: { m2: 2500 }, fecha: haceDias(4) },
+    { id: "y1", tipo: "gasto", pagador: "m1", importe: 2000, concepto: "Préstamo", reparto: { m2: 2000 }, fecha: haceDias(9) }] });
+
 const nav = await puppeteer.launch({ executablePath: "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe", headless: "new" });
 // Para que parezcan capturas de un iPhone de verdad: barra de estado (9:41, cobertura, wifi, batería), indicador de inicio
 // y las hojas a pantalla completa (sin el fondo oscurecido, que en una foto queda sucio)
@@ -69,7 +77,7 @@ try {
   await p.evaluate((d, g, du) => {
     localStorage.clear();
     localStorage.setItem("bolsillo.v1", JSON.stringify(d)); localStorage.setItem("bolsillo.grupos", JSON.stringify(g)); localStorage.setItem("bolsillo.duelos", JSON.stringify(du)); localStorage.setItem("bolsillo.duelosVistos", "[]");
-    localStorage.setItem("bolsillo.sync", JSON.stringify({ clave: "ejemplo" })); localStorage.setItem("bolsillo.ayuda", "no"); localStorage.setItem("bolsillo.bienvenida", "si");
+    localStorage.setItem("bolsillo.sync", JSON.stringify({ clave: "ejemplo" })); localStorage.setItem("bolsillo.ayuda", "no"); localStorage.setItem("bolsillo.bienvenida", "si"); localStorage.setItem("bolsillo.versionVista", "999.0"); // sin la hoja «Lo nuevo» encima
   }, datosEjemplo(), grupoEjemplo, dueloEjemplo);
   const foto = async (nombre) => { await p.evaluate(() => { document.querySelectorAll(".celebracion").forEach((c) => c.remove()); document.querySelector("#aviso")?.classList.remove("visible"); }); await espera(400); await p.screenshot({ path: path.join(SALIDA, nombre), type: "webp", quality: 86 }); console.log("✓", nombre); };
   await p.reload({ waitUntil: "load" }); await espera(1500);
@@ -83,11 +91,14 @@ try {
   await p.$eval('[data-vista="grupos"]', (b) => b.click()); await espera(800);
   await p.$eval("[data-grupo]", (b) => b.click()); await espera(800); await foto("grupo.webp");
   await p.evaluate(() => B.cerrarHoja()); await espera(400);
+  await p.$eval("[data-prestamo]", (b) => b.click()); await espera(800); await foto("prestamo.webp");
+  await p.evaluate(() => B.cerrarHoja()); await espera(400);
   await p.$eval("[data-duelo]", (b) => b.click()); await espera(800); await foto("duelo.webp");
   await p.evaluate(() => B.cerrarHoja()); await espera(400);
   await p.$eval('[data-vista="mes"]', (b) => b.click()); await espera(600);
   await p.$eval("#abrir-wrapped", (b) => b.click()); await espera(1500);
-  const b64 = await p.evaluate(async () => { const b = await (await fetch(document.querySelector("#wrapped-img").src)).blob(); return await new Promise((r) => { const f = new FileReader(); f.onload = () => r(f.result.split(",")[1]); f.readAsDataURL(b); }); });
+  // Se copia dibujándola en un lienzo: la protección de la app (CSP) no deja leer la imagen con fetch
+  const b64 = await p.evaluate(() => { const img = document.querySelector("#wrapped-img"), c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext("2d").drawImage(img, 0, 0); return c.toDataURL("image/png").split(",")[1]; });
   // La tarjeta para stories a 720×1280 (nítida en pantallas retina)
   await p.setViewport({ width: 720, height: 1280, deviceScaleFactor: 1 });
   await p.setContent(`<style>*{margin:0}img{width:720px;height:1280px;display:block}</style><img src="data:image/jpeg;base64,${b64}">`);

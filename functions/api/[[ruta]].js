@@ -112,11 +112,13 @@ async function registro(peticion, env) {
 }
 
 // ---------- Datos ----------
+// «2026-13-45» tiene buena pinta pero no existe: al convertirla, la fecha cambia
+const fechaReal = (t) => { const d = new Date(t + "T12:00:00Z"); return !isNaN(d) && d.toISOString().slice(0, 10) === t; };
 function movValido(m) {
   if (!m || typeof m.id !== "string" || !/^[\w-]{4,40}$/.test(m.id) || !TIPOS[m.tipo]) return null;
   const importe = Number(m.importe);
   if (!Number.isInteger(importe) || importe <= 0 || importe > 10_000_000) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(m.fecha || "")) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(m.fecha || "") || !fechaReal(m.fecha)) return null;
   return { id: m.id, tipo: m.tipo, cat: TIPOS[m.tipo].includes(m.cat) ? m.cat : TIPOS[m.tipo].at(-1), importe, nota: String(m.nota || "").slice(0, 60),
     fecha: m.fecha, creado: String(m.creado || new Date().toISOString()).slice(0, 30), actualizado: String(m.actualizado || m.creado || new Date().toISOString()).slice(0, 30),
     borrado: m.borrado ? 1 : 0, origen: ["applepay", "wallet", "voz", "fijo"].includes(m.origen) ? m.origen : "app" };
@@ -783,6 +785,12 @@ async function borrarNube(usuario, cuerpo, env) {
     env.DB.prepare("DELETE FROM ajustes WHERE usuario = ?1").bind(usuario),
     env.DB.prepare("DELETE FROM usuarios WHERE id = ?1").bind(usuario),
     env.DB.prepare("DELETE FROM push_subs WHERE usuario = ?1").bind(usuario),
+    // Su Bizum, PayPal y Revolut, sus votos y sugerencias de la encuesta y su freno de códigos
+    env.DB.prepare("DELETE FROM cobro_datos WHERE usuario = ?1").bind(usuario),
+    ...["ideas_votos", "sugerencias"].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE votante = ?1`).bind("u:" + usuario)),
+    env.DB.prepare("DELETE FROM limites WHERE ip_hash = ?1").bind("u:" + usuario),
+    // Los cobros en los que estaba (le debían o debía): sin él ya no hay a quién avisar ni cómo pagarle
+    env.DB.prepare("DELETE FROM cobros WHERE EXISTS (SELECT 1 FROM miembros m WHERE m.grupo = cobros.grupo AND m.usuario = ?1 AND m.id IN (cobros.de, cobros.a))").bind(usuario),
     env.DB.prepare("DELETE FROM duelo_miembros WHERE usuario = ?1").bind(usuario),
     env.DB.prepare("DELETE FROM reacciones WHERE autor IN (SELECT id FROM circulo_miembros WHERE usuario = ?1) OR reactor IN (SELECT id FROM circulo_miembros WHERE usuario = ?1)").bind(usuario),
     env.DB.prepare("DELETE FROM circulo_miembros WHERE usuario = ?1").bind(usuario),
@@ -790,7 +798,7 @@ async function borrarNube(usuario, cuerpo, env) {
     env.DB.prepare("DELETE FROM duelos WHERE id NOT IN (SELECT duelo FROM duelo_miembros)"),
     // Sale de sus grupos (su nombre se queda en las cuentas); los grupos sin nadie con la app se borran
     env.DB.prepare("UPDATE miembros SET usuario = NULL WHERE usuario = ?1").bind(usuario),
-    ...["gastos_grupo", "miembros", "grupos"].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE ${t === "grupos" ? "id" : "grupo"} NOT IN (SELECT grupo FROM miembros WHERE usuario IS NOT NULL)`)),
+    ...["gastos_grupo", "cobros", "miembros", "grupos"].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE ${t === "grupos" ? "id" : "grupo"} NOT IN (SELECT grupo FROM miembros WHERE usuario IS NOT NULL)`)),
   ]);
   return json({ ok: true });
 }
@@ -819,8 +827,9 @@ export async function onRequest({ request, env, params, waitUntil }) {
       // Diagnóstico del último fallo (nombres de cabeceras y longitudes, nunca la clave)
       const diag = { ruta, cuando: new Date().toISOString(), cabeceras: [...request.headers.keys()].filter((k) => !/^(cf-|x-forwarded|x-real-ip)/.test(k)), auth_largo: (request.headers.get("Authorization") || "").length,
         clave_largo: dada.length, campos: Object.keys(cuerpo), agente: (request.headers.get("User-Agent") || "").slice(0, 80) };
-      await env.DB.prepare("INSERT INTO ajustes (usuario, clave, valor, actualizado, servido) VALUES ('', 'ultimo_fallo', ?1, ?2, 0) ON CONFLICT(usuario, clave) DO UPDATE SET valor = excluded.valor, actualizado = excluded.actualizado")
-        .bind(JSON.stringify(diag), diag.cuando).run().catch(() => {});
+      // Como mucho uno por minuto: si alguien manda claves falsas sin parar, no gasta las escrituras del día en la base
+      await env.DB.prepare("INSERT INTO ajustes (usuario, clave, valor, actualizado, servido) VALUES ('', 'ultimo_fallo', ?1, ?2, 0) ON CONFLICT(usuario, clave) DO UPDATE SET valor = excluded.valor, actualizado = excluded.actualizado WHERE ajustes.actualizado < ?3")
+        .bind(JSON.stringify(diag), diag.cuando, new Date(Date.now() - 60_000).toISOString()).run().catch(() => {});
       return json({ error: "Clave incorrecta", pista: pistaClave(dada), texto: "Clave incorrecta" }, 401);
     }
     if (ruta === "estado" && request.method === "GET") return json({ ok: true, dueno: usuario === "yo" || undefined });

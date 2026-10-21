@@ -20,13 +20,20 @@ async function avisoDuelo(env, usuario, hoy) {
 
 const hoyMadrid = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
 
+// El plan gratis de Cloudflare deja unas 50 conexiones fuera (a Apple o Google) cada vez que se ejecuta.
+// Por eso se reparte en tandas: cada vuelta manda como mucho 30 avisos del día y 10 recordatorios de cobro,
+// y la vuelta siguiente (10 minutos después) sigue con quien falte. Quien ya lo recibió hoy no se repite.
+const AVISOS_POR_VUELTA = 30, COBROS_POR_VUELTA = 10;
+
 async function repartir(env) {
   const hoy = hoyMadrid(), desde = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
   const { results: subs } = await env.DB.prepare("SELECT endpoint, usuario, p256dh, auth FROM push_subs WHERE ultimo_envio IS NULL OR ultimo_envio < ?1").bind(hoy).all();
   const porUsuario = {};
   for (const s of subs) (porUsuario[s.usuario] ||= []).push(s);
   let enviados = 0, borrados = 0;
+  let conexiones = 0;
   for (const [usuario, lista] of Object.entries(porUsuario)) {
+    if (conexiones + lista.length > AVISOS_POR_VUELTA) break; // el resto, en la próxima vuelta
     const { results: movs } = await env.DB.prepare("SELECT tipo, cat, importe, nota, fecha FROM movs WHERE usuario = ?1 AND borrado = 0 AND fecha >= ?2").bind(usuario, desde).all();
     // Lo más importante primero: un duelo que acaba de terminar, un préstamo sin devolver y después lo del día
     // Cuándo cobra y si tiene el presupuesto «según lo que cobro» (para recordarle apuntar lo cobrado ese día)
@@ -37,6 +44,7 @@ async function repartir(env) {
     const { marcar, ...mensaje } = aviso;
     let llego = false;
     for (const s of lista) {
+      conexiones++;
       const estado = await enviarPush(s, mensaje, env).catch(() => 0);
       if (estado === 404 || estado === 410) { await env.DB.prepare("DELETE FROM push_subs WHERE endpoint = ?1").bind(s.endpoint).run(); borrados++; }
       else if (estado >= 200 && estado < 300) { await env.DB.prepare("UPDATE push_subs SET ultimo_envio = ?2 WHERE endpoint = ?1").bind(s.endpoint, hoy).run(); enviados++; llego = true; }
@@ -50,6 +58,6 @@ export default {
   async scheduled(evento, env, ctx) {
     ctx.waitUntil(repartir(env).then((r) => console.log("avisos", JSON.stringify(r))));
     // Deudas de grupo olvidadas: un recordatorio a quien debe (cada 3 días, como mucho 3 veces)
-    ctx.waitUntil(recordarCobros(env).then((r) => console.log("cobros", JSON.stringify(r))).catch((e) => console.log("cobros falla", e.message)));
+    ctx.waitUntil(recordarCobros(env, new Date(), COBROS_POR_VUELTA).then((r) => console.log("cobros", JSON.stringify(r))).catch((e) => console.log("cobros falla", e.message)));
   },
 };

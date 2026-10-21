@@ -40,7 +40,7 @@ ${indexar ? `<link rel="canonical" href="${url}">` : '<meta name="robots" conten
 <link rel="stylesheet" href="/conoce/estilos.css">
 ${extra}</head>`;
 
-const enlacesNav = [["/conoce/#instalar", "Instalar"], ["/conoce/#como-funciona", "Cómo funciona"], ["/conoce/#funciones", "Funciones"], ["/conoce/#duelos", "Duelos"], ["/conoce/#preguntas", "Preguntas"], ["/novedades/", "Novedades"]];
+const enlacesNav = [["/conoce/#instalar", "Instalar"], ["/conoce/#como-funciona", "Cómo funciona"], ["/conoce/#funciones", "Funciones"], [`/conoce/#${novedad.id}`, novedad.menu], ["/conoce/#preguntas", "Preguntas"], ["/novedades/", "Novedades"]];
 const nav = () => `<a class="saltar" href="#contenido">Saltar al contenido</a>
 <header class="nav-caja">
   <nav class="nav" aria-label="Principal">
@@ -81,7 +81,7 @@ ${nav()}
   <section class="hero" aria-labelledby="titular">
     <div class="contenedor hero__rejilla">
       <div class="hero__texto">
-        <a class="aviso-nuevo" href="#duelos"><span>${esc(novedad.etiqueta)}</span>${esc(novedad.aviso)}${icono("arrow-right")}</a>
+        <a class="aviso-nuevo" href="#${novedad.id}"><span>${esc(novedad.etiqueta)}</span>${esc(novedad.aviso)}${icono("arrow-right")}</a>
         <h1 class="hero__titular" id="titular">${hero.titular.map((l) => `<span>${esc(l)}</span>`).join("")}</h1>
         <p class="hero__sub">${esc(hero.subtitulo)}</p>
         <div class="hero__acciones"><a class="boton boton--grande" href="${sitio.urlApp}">${sitio.cta}${icono("arrow-right")}</a><a class="boton boton--grande boton--secundario" href="#instalar">${icono("device-mobile")}Cómo instalarla</a></div>
@@ -90,7 +90,7 @@ ${nav()}
       <div class="hero__visual">
         <span class="hero__halo" aria-hidden="true"></span>
         ${telefono("mes.webp", capturas[0].alt, "eager")}
-        <div class="hero__segundo">${telefono("duelo.webp", novedad.alt, "eager")}</div>
+        <div class="hero__segundo">${telefono(novedad.img, novedad.alt, "eager")}</div>
       </div>
     </div>
   </section>
@@ -118,12 +118,12 @@ ${nav()}
     </div>
   </section>
 
-  <section class="seccion" id="duelos" aria-labelledby="t-duelos">
+  <section class="seccion" id="${novedad.id}" aria-labelledby="t-novedad">
     <div class="contenedor">
       <div class="novedad aparece">
         <div class="novedad__texto">
-          <span class="chip-nuevo">${azulejo("sword", "#ff2d55", "azulejo--chip")}${esc(novedad.etiqueta)} · ${esc(novedad.aviso)}</span>
-          <h2 class="titulo-seccion" id="t-duelos">${esc(novedad.titulo)}</h2>
+          <span class="chip-nuevo">${azulejo(novedad.icono, novedad.color, "azulejo--chip")}${esc(novedad.etiqueta)} · ${esc(novedad.aviso)}</span>
+          <h2 class="titulo-seccion" id="t-novedad">${esc(novedad.titulo)}</h2>
           <p class="entradilla">${esc(novedad.texto)}</p>
           <ul class="novedad__puntos" role="list">${novedad.puntos.map((p) => `<li>${azulejo(p.icono, p.color, "azulejo--peque")}<span>${esc(p.texto)}</span></li>`).join("")}</ul>
           <div class="novedad__acciones"><a class="boton boton--grande" href="${sitio.urlApp}">Retar a un amigo${icono("arrow-right")}</a><a class="enlace-flecha" href="/novedades/">Todas las novedades${icono("arrow-right")}</a></div>
@@ -260,7 +260,7 @@ legal("privacidad/index.html", "Política de privacidad", "Qué datos guarda Bol
 <p>En Cloudflare (Cloudflare, Inc.), que aloja la app y la base de datos como encargado del tratamiento. Cloudflare puede tratar datos fuera del Espacio Económico Europeo con las garantías de las cláusulas contractuales tipo de la Comisión Europea. Los avisos los entregan los servicios de notificaciones de Apple o Google.</p>
 
 <h2>Cuánto tiempo</h2>
-<p>Hasta que borres tu nube. Al pulsar «Borrar mi nube» en Ajustes se eliminan tus movimientos, ajustes, avisos y tu clave del servidor al momento, y sales de tus grupos (tu nombre se queda en sus cuentas para que cuadren).</p>
+<p>Hasta que borres tu nube. Al pulsar «Borrar mi nube» en Ajustes se eliminan del servidor al momento tus movimientos, ajustes, avisos, tu clave, cómo quieres que te paguen (Bizum, PayPal, Revolut), los cobros en los que estabas y tus votos y sugerencias de la encuesta. Sales de tus grupos, aunque tu nombre se queda en sus cuentas para que cuadren.</p>
 
 <h2>Tus derechos</h2>
 <ul>
@@ -274,7 +274,8 @@ legal("privacidad/index.html", "Política de privacidad", "Qué datos guarda Bol
 <p>En España, si tienes menos de 14 años necesitas el permiso de tus padres o tutores para usar servicios que traten datos personales.</p>
 
 <h2>Cookies</h2>
-<p>Bolsillo no usa cookies ni herramientas de analítica o publicidad de terceros. Solo usa el almacenamiento local del navegador para funcionar, y eso no necesita tu consentimiento. Cloudflare muestra al titular estadísticas de visitas agregadas que no identifican a nadie.</p>
+<p>Bolsillo no usa cookies ni publicidad. Solo usa el almacenamiento local del navegador para funcionar, y eso no necesita tu consentimiento.</p>
+<p>Para saber cuántas visitas tiene, usa Cloudflare Web Analytics, del mismo Cloudflare que aloja la app. No usa cookies, no guarda tu dirección IP ni te sigue de una web a otra: solo cuenta visitas y páginas vistas en total, sin saber quién eres. Nunca ve tus gastos, que no pasan por ahí.</p>
 `);
 
 legal("aviso-legal/index.html", "Aviso legal", "Titular, condiciones de uso y responsabilidad de Bolsillo.", `
