@@ -844,11 +844,19 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   const fijosAlMes = () => (datos.extra.fijos || []).filter((f) => f.tipo === "gasto" && Number.isInteger(f.importe)).reduce((s, f) => s + f.importe, 0);
   // La parte de los fijos en este periodo: el mes entero, o lo que toca a una semana (un año tiene 52 semanas y 12 meses)
   const reservaFijos = (pe) => Math.round(fijosAlMes() * (pe.semanal ? 12 / 52 : 1));
+  // Lo que faltó para los fijos en el periodo anterior se suma a los de este, para que los fijos acaben cubiertos.
+  // Solo si en aquel periodo apuntaste algún cobro (sin cobros no se sabe qué pasó) y mirando como mucho 4 hacia atrás.
+  function pendienteDeAntes(pe, vueltas = 4) {
+    if (!vueltas) return 0;
+    const antes = periodo(masDiasISO(pe.ini, -1)), cobrado = ingresoPeriodo(antes);
+    if (!cobrado) return 0;
+    return Math.max(0, reservaFijos(antes) + pendienteDeAntes(antes, vueltas - 1) - cobrado);
+  }
   function sobres(pe = periodo()) {
     const v = datos.extra.variable, cobrado = v ? ingresoPeriodo(pe) : 0;
     if (!cobrado) return null;
-    const fijos = reservaFijos(pe), libre = cobrado - fijos, ahorro = libre > 0 ? Math.round(libre * (v.ahorro || 0) / 100) : 0;
-    return { cobrado, fijos, ahorro, gastar: Math.max(0, libre - ahorro), faltan: Math.max(0, -libre) };
+    const pendiente = pendienteDeAntes(pe), fijos = reservaFijos(pe) + pendiente, libre = cobrado - fijos, ahorro = libre > 0 ? Math.round(libre * (v.ahorro || 0) / 100) : 0;
+    return { cobrado, fijos, pendiente, ahorro, gastar: Math.max(0, libre - ahorro), faltan: Math.max(0, -libre) };
   }
   // Con los sobres, los fijos ya tienen su parte: no se descuentan de lo que tienes para gastar
   const cuenta = (x) => !(datos.extra.variable && x.origen === "fijo");
@@ -1020,7 +1028,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
       const hucha = huchaDelAhorro();
       lineas += s ? `<div class="sobres">${[["Fijos", s.fijos], [hucha ? `A «${esc(hucha.nombre)}»` : "Ahorras", s.ahorro], ["Para gastar", s.gastar]].filter(([, c], i) => c || i === 2)
           .map(([nombre, c]) => `<div class="mini"><span class="etiqueta">${nombre}</span><b class="num">${euros(c)}</b></div>`).join("")}</div>
-        <p class="linea-resumen" style="margin:6px 0 0;display:block">${s.faltan ? `<b class="pasado">${periodoTexto} te faltan ${euros(s.faltan)} para tus fijos</b>` : `De tus <b class="num">${euros(s.cobrado)}</b> cobrados.${s.fijos ? " Tus fijos ya tienen su sobre: no cuentan en lo gastado." : ""}${hucha && s.ahorro ? ` Lo que ahorras entra solo en tu hucha «${esc(hucha.nombre)}».` : ""}`}</p>`
+        <p class="linea-resumen" style="margin:6px 0 0;display:block">${s.pendiente ? `Los fijos incluyen <b class="num">${euros(s.pendiente)}</b> que faltaron ${pe.semanal ? "la semana pasada" : "el mes pasado"}. ` : ""}${s.faltan ? `<b class="pasado">${periodoTexto} te faltan ${euros(s.faltan)} para tus fijos</b>: se suman ${pe.semanal ? "a la semana que viene" : "al mes que viene"}.` : `De tus <b class="num">${euros(s.cobrado)}</b> cobrados.${s.fijos ? " Tus fijos ya tienen su sobre: no cuentan en lo gastado." : ""}${hucha && s.ahorro ? ` Lo que ahorras entra solo en tu hucha «${esc(hucha.nombre)}».` : ""}`}</p>`
         : `<button class="boton-permitir" id="apuntar-cobro">${ico("wallet", "ico-texto")}¿Ya has cobrado? Apunta cuánto</button>`;
     }
     const media = diaHoy ? Math.round(gastadoR / diaHoy) : 0;

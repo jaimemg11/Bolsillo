@@ -1,0 +1,14 @@
+{
+  "name": "bolsillo",
+  "private": true,
+  "type": "module",
+  "description": "La app de gastos que se apunta sola al pagar con el móvil",
+  "scripts": {
+    "test": "node pruebas/servidor.mjs && node pruebas/app.mjs",
+    "prueba:servidor": "node pruebas/servidor.mjs",
+    "prueba:app": "node pruebas/app.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.64.0"
+  }
+}

@@ -24,6 +24,13 @@
   else {
     const io = new IntersectionObserver((entradas) => entradas.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("visible"); io.unobserve(e.target); } }), { rootMargin: "0px 0px 15% 0px" }); // empieza un poco antes de entrar: al llegar ya se ve
     aparecen.forEach((el) => io.observe(el));
+    // A dos pantallas del final se enseña todo lo que quede: si alguien baja de golpe, nada se queda en blanco
+    const alFinal = () => {
+      if (scrollY + innerHeight * 3 < document.documentElement.scrollHeight) return;
+      document.querySelectorAll(".aparece:not(.visible)").forEach((el) => el.classList.add("visible"));
+      removeEventListener("scroll", alFinal);
+    };
+    addEventListener("scroll", alFinal, { passive: true });
   }
 
   // Frase reveladora: cada palabra se enciende al cruzar la línea del 55 % de la pantalla

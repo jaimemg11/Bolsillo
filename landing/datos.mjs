@@ -110,8 +110,9 @@ export const novedad = {
   id: "prestamos", menu: "Préstamos", icono: "handshake", color: "#ff9500",
   etiqueta: "Nuevo",
   aviso: "Préstamos entre amigos",
-  titulo: "¿Le has dejado dinero a alguien? Que no se te olvide",
-  texto: "Apuntas cuánto le has dejado y a quién, aunque no tenga la app. Si en una semana no te lo ha devuelto, Bolsillo os lo recuerda, y se lo cobras con un enlace.",
+  titulo: "¿Le has dejado dinero a alguien?",
+  boton: "Apuntar un préstamo",
+  texto: "Que no se te olvide: apuntas cuánto le has dejado y a quién, aunque no tenga la app. Si en una semana no te lo ha devuelto, Bolsillo os lo recuerda, y se lo cobras con un enlace.",
   puntos: [
     { icono: "bell", color: "#ff9500", texto: "A la semana os avisa a los dos, y después una vez por semana. Como mucho tres veces: recordar, no agobiar." },
     { icono: "hand-tap", color: "#007aff", texto: "Le mandas un enlace por WhatsApp: ve tu Bizum o tu PayPal, te paga y te llega un aviso." },

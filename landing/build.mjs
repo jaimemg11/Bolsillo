@@ -81,14 +81,13 @@ ${nav()}
   <section class="hero" aria-labelledby="titular">
     <div class="contenedor hero__rejilla">
       <div class="hero__texto">
-        <a class="aviso-nuevo" href="#${novedad.id}"><span>${esc(novedad.etiqueta)}</span>${esc(novedad.aviso)}${icono("arrow-right")}</a>
         <h1 class="hero__titular" id="titular">${hero.titular.map((l) => `<span>${esc(l)}</span>`).join("")}</h1>
         <p class="hero__sub">${esc(hero.subtitulo)}</p>
         <div class="hero__acciones"><a class="boton boton--grande" href="${sitio.urlApp}">${sitio.cta}${icono("arrow-right")}</a><a class="boton boton--grande boton--secundario" href="#instalar">${icono("device-mobile")}Cómo instalarla</a></div>
         <ul class="prueba" role="list">${hero.prueba.map((p) => `<li>${icono("shield-check")}${esc(p)}</li>`).join("")}</ul>
+        <a class="aviso-nuevo" href="#${novedad.id}">${esc(novedad.etiqueta)}: ${esc(novedad.aviso.toLowerCase())}${icono("arrow-right")}</a>
       </div>
       <div class="hero__visual">
-        <span class="hero__halo" aria-hidden="true"></span>
         ${telefono("mes.webp", capturas[0].alt, "eager")}
         <div class="hero__segundo">${telefono(novedad.img, novedad.alt, "eager")}</div>
       </div>
@@ -111,9 +110,9 @@ ${nav()}
     </div>
   </section>
 
-  <section class="seccion problema aparece">
-    <div class="contenedor estrecho">
-      <h2 class="titulo-seccion">${esc(problema.titulo)}</h2>
+  <section class="seccion problema aparece" aria-labelledby="t-problema">
+    <div class="contenedor problema__rejilla">
+      <h2 class="titulo-seccion" id="t-problema">${esc(problema.titulo)}</h2>
       <p class="entradilla">${esc(problema.texto)}</p>
     </div>
   </section>
@@ -122,11 +121,10 @@ ${nav()}
     <div class="contenedor">
       <div class="novedad aparece">
         <div class="novedad__texto">
-          <span class="chip-nuevo">${azulejo(novedad.icono, novedad.color, "azulejo--chip")}${esc(novedad.etiqueta)} · ${esc(novedad.aviso)}</span>
           <h2 class="titulo-seccion" id="t-novedad">${esc(novedad.titulo)}</h2>
           <p class="entradilla">${esc(novedad.texto)}</p>
           <ul class="novedad__puntos" role="list">${novedad.puntos.map((p) => `<li>${azulejo(p.icono, p.color, "azulejo--peque")}<span>${esc(p.texto)}</span></li>`).join("")}</ul>
-          <div class="novedad__acciones"><a class="boton boton--grande" href="${sitio.urlApp}">Retar a un amigo${icono("arrow-right")}</a><a class="enlace-flecha" href="/novedades/">Todas las novedades${icono("arrow-right")}</a></div>
+          <div class="novedad__acciones"><a class="boton boton--grande" href="${sitio.urlApp}">${esc(novedad.boton)}${icono("arrow-right")}</a><a class="enlace-flecha" href="/novedades/">Todas las novedades${icono("arrow-right")}</a></div>
         </div>
         <div class="novedad__visual">${telefono(novedad.img, novedad.alt)}</div>
       </div>
@@ -136,7 +134,7 @@ ${nav()}
   <section class="seccion" id="funciones" aria-labelledby="t-funciones">
     <div class="contenedor">
       <h2 class="titulo-seccion aparece" id="t-funciones">Todo lo que necesitas, nada que te frene</h2>
-      <ul class="rejilla-funciones" role="list">${funciones.map((f) => `<li class="tarjeta aparece">${azulejo(f.icono, f.color)}<h3>${esc(f.titulo)}</h3><p>${esc(f.texto)}</p></li>`).join("")}</ul>
+      <ul class="lista-puntos rejilla-funciones" role="list">${funciones.map((f) => `<li class="punto aparece"><h3>${azulejo(f.icono, f.color, "azulejo--peque")}${esc(f.titulo)}</h3><p>${esc(f.texto)}</p></li>`).join("")}</ul>
     </div>
   </section>
 
@@ -152,7 +150,7 @@ ${nav()}
   <section class="seccion" id="como-funciona" aria-labelledby="t-pasos">
     <div class="contenedor">
       <h2 class="titulo-seccion aparece" id="t-pasos">Empieza en un minuto</h2>
-      <ol class="pasos" role="list">${pasos.map((p, i) => `<li class="paso aparece"><span class="paso__num num">${i + 1}</span><h3>${esc(p.titulo)}</h3><p>${esc(p.texto)}</p></li>`).join("")}</ol>
+      <ol class="pasos">${pasos.map((p) => `<li class="paso aparece"><h3>${esc(p.titulo)}</h3><p>${esc(p.texto)}</p></li>`).join("")}</ol>
     </div>
   </section>
 
@@ -170,7 +168,7 @@ ${nav()}
   <section class="seccion" id="privacidad" aria-labelledby="t-privacidad">
     <div class="contenedor">
       <h2 class="titulo-seccion aparece" id="t-privacidad">${esc(privacidad.titulo)}</h2>
-      <ul class="rejilla-privacidad" role="list">${privacidad.puntos.map((p) => `<li class="tarjeta aparece">${azulejo(p.icono, p.color)}<h3>${esc(p.titulo)}</h3><p>${esc(p.texto)}</p></li>`).join("")}</ul>
+      <ul class="lista-puntos rejilla-privacidad" role="list">${privacidad.puntos.map((p) => `<li class="punto aparece"><h3>${azulejo(p.icono, p.color, "azulejo--peque")}${esc(p.titulo)}</h3><p>${esc(p.texto)}</p></li>`).join("")}</ul>
       <p class="nota-centro aparece">Todos los detalles en la <a href="/privacidad/">política de privacidad</a>.</p>
     </div>
   </section>
@@ -185,7 +183,6 @@ ${nav()}
   <section class="seccion autor" id="autor" aria-labelledby="t-autor">
     <div class="contenedor estrecho">
       <div class="autor__caja tarjeta aparece">
-        <p class="autor__etiqueta">Quién está detrás</p>
         <h2 class="autor__titulo" id="t-autor">Hecha por un joven, para jóvenes</h2>
         <p class="autor__texto">Soy Jaime, estudiante de DAW. Creé Bolsillo porque no llegaba a final de mes y no sabía en qué se me iba el dinero, igual que a mis amigos. El código es abierto: puedes ver cómo está hecha por dentro.</p>
         <a class="boton boton--grande boton--secundario" href="https://github.com/jaimemg11/Bolsillo" rel="noopener">${icono("github-logo")}Ver el código en GitHub</a>

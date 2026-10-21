@@ -4,3 +4,9 @@ migracion-usuarios.sql
 
 # Archivos temporales de Cloudflare en mi ordenador
 .wrangler/
+
+# Herramientas que instala npm (se recuperan con «npm install»)
+node_modules/
+
+# Capturas y notas de las revisiones de diseño
+.taste-skill/
