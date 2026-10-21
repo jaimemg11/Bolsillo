@@ -253,6 +253,18 @@
         + fila(prest.filter((x) => x.mio < 0), "#ff3b30", "wallet", (q, n) => `Debes <b>${q}</b> de préstamos: ${n}.`));
       caja.querySelectorAll("[data-banner-prestamo]").forEach((b) => b.addEventListener("click", () => (b.dataset.bannerPrestamo ? abrirPrestamo(b.dataset.bannerPrestamo) : B.irVista("grupos"))));
     }
+    // Android sin ningún pago de Wallet todavía: falta MacroDroid, que no viene en el móvil (en el iPhone, Atajos sí)
+    let walletOculto = false; try { walletOculto = localStorage.getItem("bolsillo.avisoWallet") === "no"; } catch {}
+    if (esActual && /Android/i.test(navigator.userAgent) && !walletOculto && !B.datos.movs.some((m) => m.origen === "wallet")) {
+      caja.insertAdjacentHTML("afterbegin", `<div class="banner"><button id="banner-wallet" style="display:flex;gap:12px;align-items:center;flex:1;text-align:left"><span class="icono chico" style="--c:#007aff">${ico("contactless-payment")}</span>
+        <span><b>Que tus pagos se apunten solos</b><br>Falta un paso: conectar Google Wallet con la app gratis MacroDroid (3 minutos).</span></button><button id="ocultar-wallet" aria-label="Ocultar" style="font-size:22px;padding:0 4px;color:var(--suave)">×</button></div>`);
+      $("#banner-wallet").addEventListener("click", async () => {
+        // La guía necesita la clave de tu nube: si aún no la tienes, se crea primero (y se te pide guardarla)
+        if (!B.sync.clave) { await B.crearNube(); return; }
+        B.abrirHoja($("#hoja-applepay"));
+      });
+      $("#ocultar-wallet").addEventListener("click", () => { try { localStorage.setItem("bolsillo.avisoWallet", "no"); } catch {} B.pintar(); avisar("Lo tienes en Ajustes → Apuntar solo al pagar (Wallet)"); });
+    }
     $("#abrir-wrapped")?.addEventListener("click", abrirWrapped);
     $("#banner-fijos")?.addEventListener("click", abrirFijos);
     $("#extras-subs").innerHTML = subs.length ? `<h2>Cobros que se repiten</h2><div class="grupo">${subs.map((s) => {

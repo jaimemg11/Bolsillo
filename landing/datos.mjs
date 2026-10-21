@@ -30,7 +30,7 @@ export const problema = {
 };
 
 export const funciones = [
-  { icono: "lightning", color: "#ff9500", titulo: "Se apunta sola al pagar", texto: "Pagas en el súper con el móvil y aparece «−12,50 € · Súper (Mercadona)». Sin abrir la app. Con Apple Pay en iPhone y con Google Wallet en Android." },
+  { icono: "lightning", color: "#ff9500", titulo: "Se apunta sola al pagar", texto: "Pagas en el súper con el móvil y aparece «−12,50 € · Súper (Mercadona)». Sin abrir la app. En iPhone, con Apple Pay y la app Atajos, que ya viene en el móvil. En Android, con Google Wallet y la app gratis MacroDroid. Se prepara una vez en 3 minutos." },
   { icono: "lock-key", color: "#28a745", titulo: "Sin tu banco y sin email", texto: "No pide claves del banco, ni cuenta, ni datos personales. Tu nube va con una clave anónima." },
   { icono: "wallet", color: "#007aff", titulo: "Sabes cuánto puedes gastar hoy", texto: "Pones tu presupuesto y te dice lo que te queda y cuánto puedes gastar al día. También de paga a paga." },
   { icono: "users-three", color: "#5856d6", titulo: "Gastos de piso y de viaje", texto: "Apunta quién paga qué y Bolsillo calcula quién debe a quién, con el mínimo de pagos." },
@@ -60,6 +60,7 @@ export const instalar = {
       { icono: "google-chrome-logo", color: "#30d158", texto: "Abre la app en <b>Chrome</b>." },
       { icono: "dots-three-vertical", color: "#30d158", texto: "Pulsa el menú <b>⋮</b> (arriba a la derecha)." },
       { icono: "download-simple", color: "#30d158", texto: "Elige <b>Instalar aplicación</b> (o <b>Añadir a pantalla de inicio</b>) → <b>Instalar</b>." },
+      { icono: "lightning", color: "#ff9500", texto: "Para que tus pagos se apunten solos, instala también <b>MacroDroid</b> (gratis en Google Play). Bolsillo te guía paso a paso: son 3 minutos." },
     ] },
   ],
 };
