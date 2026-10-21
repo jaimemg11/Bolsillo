@@ -11,18 +11,26 @@
   // Tema elegido en Ajustes → Apariencia (modo claro u oscuro y color): se pone antes de pintar para que no parpadee
   // El color elegido se ajusta lo justo para leerse bien (contraste 4,5:1): más oscuro para el modo claro y los botones con letra blanca,
   // y más claro, si hace falta, para el texto en modo oscuro
+  // (La marca de la página es data-acento-propio, no data-color: data-color es de los círculos de Apariencia y se confundirían)
+  const colorValido = (c) => /^#[0-9a-f]{6}$/i.test(c || "");
   window.ponerColor = (c) => {
     const raiz = document.documentElement;
-    if (!c) { delete raiz.dataset.color; raiz.style.removeProperty("--color-claro"); raiz.style.removeProperty("--color-oscuro"); return; }
+    if (!colorValido(c)) { delete raiz.dataset.acentoPropio; raiz.style.removeProperty("--color-claro"); raiz.style.removeProperty("--color-oscuro"); return; }
     const lum = (rgb) => rgb.map((v) => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
     const hex = (rgb) => "#" + rgb.map((v) => v.toString(16).padStart(2, "0")).join("");
     const base = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
     let claro = base, oscuro = base;
-    while ((lum([242, 242, 247]) + .05) / (lum(claro) + .05) < 4.6) claro = claro.map((v) => Math.round(v * .95)); // sobre el gris del fondo claro
-    while ((lum(oscuro) + .05) / .05 < 4.6) oscuro = oscuro.map((v) => Math.round(v + (255 - v) * .08)); // sobre el negro
-    raiz.dataset.color = "si"; raiz.style.setProperty("--color-claro", hex(claro)); raiz.style.setProperty("--color-oscuro", hex(oscuro));
+    for (let n = 0; n < 60 && (lum([242, 242, 247]) + .05) / (lum(claro) + .05) < 4.6; n++) claro = claro.map((v) => Math.floor(v * .95)); // sobre el gris del fondo claro
+    for (let n = 0; n < 60 && (lum(oscuro) + .05) / .05 < 4.6; n++) oscuro = oscuro.map((v) => Math.ceil(v + (255 - v) * .08)); // sobre el negro
+    raiz.dataset.acentoPropio = ""; raiz.style.setProperty("--color-claro", hex(claro)); raiz.style.setProperty("--color-oscuro", hex(oscuro));
   };
-  try { const t = JSON.parse(localStorage.getItem("bolsillo.tema") || "{}"); if (t.modo) document.documentElement.dataset.tema = t.modo; if (t.color) ponerColor(t.color); } catch {}
+  try {
+    const t = JSON.parse(localStorage.getItem("bolsillo.tema") || "{}");
+    // Un color roto guardado por el fallo del 21 de octubre («si») se olvida: vuelve el azul de siempre
+    if (t.color && !colorValido(t.color)) { delete t.color; localStorage.setItem("bolsillo.tema", JSON.stringify(t)); }
+    if (t.modo) document.documentElement.dataset.tema = t.modo;
+    if (t.color) ponerColor(t.color);
+  } catch {}
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -46,9 +54,9 @@
     --verde: #30d158; --rojo: #ff453a; --relleno: rgba(118, 118, 128, .24); --sombra: none; --sobre-verde: #00210b; }
   :root[data-tema="claro"] { color-scheme: light; }
   /* Color elegido en Apariencia: la versión oscurecida para texto en claro y para botones; la original para texto en oscuro */
-  :root[data-color] { --acento: var(--color-claro); --acento-fondo: var(--color-claro); }
-  @media (prefers-color-scheme: dark) { :root[data-color]:not([data-tema="claro"]) { --acento: var(--color-oscuro); } }
-  :root[data-color][data-tema="oscuro"] { --acento: var(--color-oscuro); }
+  :root[data-acento-propio] { --acento: var(--color-claro); --acento-fondo: var(--color-claro); }
+  @media (prefers-color-scheme: dark) { :root[data-acento-propio]:not([data-tema="claro"]) { --acento: var(--color-oscuro); } }
+  :root[data-acento-propio][data-tema="oscuro"] { --acento: var(--color-oscuro); }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   /* Se puede ampliar con dos dedos; un doble toque en un botón no amplía */
   button, a, input, select, label, summary { touch-action: manipulation; }
@@ -80,6 +88,23 @@
   .total small { font-size: 26px; font-weight: 600; }
   .barra { height: 8px; border-radius: 4px; background: var(--relleno); overflow: hidden; margin: 14px 0 8px; display: flex; }
   .barra i { display: block; height: 100%; transition: width .5s var(--curva); }
+  /* Gráfico del ritmo: una línea de color (lo tuyo) y una gris discontinua (para llegar justo) */
+  .ritmo { margin: 16px 0 4px; }
+  .ritmo-hallazgo { margin: 0 0 10px; font-size: 15px; line-height: 1.4; }
+  .ritmo-grafico { position: relative; height: 112px; touch-action: pan-y; cursor: crosshair; }
+  .ritmo-grafico svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .ritmo-linea { fill: none; stroke: var(--acento); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  .ritmo-ref { stroke: var(--suave); stroke-width: 1.5; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; opacity: .7; }
+  .ritmo-base { stroke: var(--linea); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .ritmo-punto { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--acento); box-shadow: 0 0 0 2px var(--tarjeta); transform: translate(-50%, -50%); pointer-events: none; }
+  .ritmo-guia { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--suave); pointer-events: none; }
+  .ritmo-ejes { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--suave); }
+  .ritmo-pie { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--suave); min-height: 18px; }
+  .ritmo-leyenda { display: flex; gap: 14px; }
+  .ritmo-leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+  .ritmo-l1, .ritmo-l2 { display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--acento); }
+  .ritmo-l2 { border-top: 2px dashed var(--suave); }
+  .ritmo-dato { color: var(--texto); }
   .linea-resumen { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--suave); }
   .linea-resumen b { color: var(--texto); font-weight: 600; }
   .pasado { color: var(--rojo) !important; }
@@ -112,8 +137,10 @@
   .fila + .fila::before, .desliza + .desliza .fila::before { content: ""; position: absolute; top: 0; left: 64px; right: 0; border-top: .5px solid var(--linea); }
   .fila.elegida { background: color-mix(in srgb, var(--acento) 10%, var(--tarjeta)); }
   /* Deslizar a la izquierda para borrar */
-  .desliza { position: relative; background: var(--rojo); }
-  .desliza::after { content: "Borrar"; position: absolute; right: 20px; top: 50%; transform: translateY(-50%); color: #fff; font-weight: 600; font-size: 15px; }
+  /* El rojo de «Borrar» solo está detrás mientras deslizas: si estuviera siempre, asomaría un hilo rojo en las esquinas redondeadas */
+  .desliza { position: relative; }
+  .desliza.deslizando { background: var(--rojo); }
+  .desliza.deslizando::after { content: "Borrar"; position: absolute; right: 20px; top: 50%; transform: translateY(-50%); color: #fff; font-weight: 600; font-size: 15px; }
   .desliza .fila { background: var(--tarjeta); z-index: 1; transition: transform .25s var(--curva); }
   .desliza .fila.moviendo { transition: none; }
   .buscador { display: flex; align-items: center; gap: 8px; background: var(--relleno); border-radius: 11px; padding: 0 12px; margin: 26px 0 0; color: var(--suave); }
@@ -230,6 +257,21 @@
   .cat-barra i { display: block; height: 100%; border-radius: 2px; }
   .vacio { text-align: center; color: var(--suave); padding: 40px 24px; }
   .vacio b { display: block; color: var(--texto); font-size: 19px; margin-bottom: 4px; }
+  .vacio-boton { margin-top: 18px; padding: 13px 24px; }
+  /* Primeros pasos: una lista con su progreso; lo hecho queda en gris con su marca verde */
+  .primeros-pasos { background: var(--tarjeta); border-radius: 16px; padding: 14px 16px 4px; margin-top: 12px; box-shadow: var(--sombra); }
+  .pp-cabeza { display: flex; align-items: center; gap: 8px; }
+  .pp-cabeza b { flex: 1; font-size: 17px; }
+  .pp-cabeza .num { color: var(--suave); font-size: 14px; }
+  #pp-ocultar { min-width: 36px; min-height: 36px; font-size: 22px; color: var(--suave); }
+  .primeros-pasos .barra { margin: 8px 0 4px; }
+  .pp-paso { width: 100%; display: flex; align-items: center; gap: 12px; min-height: 48px; text-align: left; font-size: 16px; }
+  .pp-paso + .pp-paso { border-top: .5px solid var(--linea); }
+  .pp-texto { flex: 1; }
+  .pp-paso:disabled { color: var(--suave); cursor: default; }
+  .pp-marca { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--tenue); display: grid; place-items: center; color: #fff; }
+  .pp-paso:disabled .pp-marca { background: var(--verde); border-color: var(--verde); }
+  .pp-marca svg { width: 14px; height: 14px; }
 
   /* Meses (gráfico) */
   .meses { display: flex; align-items: flex-end; gap: 8px; height: 132px; padding: 16px 16px 10px; }
@@ -261,7 +303,7 @@
   .segmento button { padding: 6px; border-radius: 7px; font-size: 14px; font-weight: 500; }
   .segmento button { transition: background .2s, color .2s; }
   #hoja-mov .segmento { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; } /* Gasto, Ingreso y Préstamo (al editar, sin Préstamo) */
-  .segmento button[aria-pressed="true"] { background: var(--tarjeta); box-shadow: 0 2px 6px rgba(0, 0, 0, .12); font-weight: 600; }
+  .segmento button[aria-pressed="true"] { background: var(--tarjeta); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); font-weight: 600; }
   /* Gasto en rojo, ingreso en verde: que se vea de un vistazo qué estás apuntando */
   .segmento button[data-tipo="gasto"][aria-pressed="true"] { background: var(--rojo); color: #fff; }
   .segmento button[data-tipo="ingreso"][aria-pressed="true"] { background: var(--verde); color: var(--sobre-verde, #fff); }
@@ -269,7 +311,7 @@
   .segmento button[data-tipo="ingreso"][aria-pressed="false"] { color: var(--verde); }
   /* Mes o semana: lo elegido, con el color de la app; lo otro, en ese color para que se vea que se puede tocar */
   .segmento.rango button { padding: 8px; font-size: 15px; }
-  .segmento.rango button[aria-pressed="true"] { background: var(--acento-fondo, var(--acento)); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--acento) 35%, transparent); }
+  .segmento.rango button[aria-pressed="true"] { background: var(--acento-fondo, var(--acento)); color: #fff; }
   .segmento.rango button[aria-pressed="false"] { color: var(--acento); }
   /* Fijos: gasto en rojo e ingreso en verde, igual que al apuntar */
   .segmento button[data-fijo-tipo="gasto"][aria-pressed="true"] { background: var(--rojo); color: #fff; }
@@ -344,7 +386,7 @@
   /* Barra de pestañas */
   .pestanas { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; justify-content: space-around; align-items: center; max-width: 560px; margin: 0 auto;
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--fondo) 82%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border-top: .5px solid var(--linea); }
-  .pestanas button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; font-weight: 500; color: var(--suave); padding: 4px 0; }
+  .pestanas button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 500; color: var(--suave); padding: 4px 0; }
   .pestanas button svg { width: 25px; height: 25px; }
   .pestanas button[aria-current="page"] { color: var(--acento); }
   .pestanas .mas { flex: none; width: 54px; height: 54px; border-radius: 50%; background: var(--acento-fondo, var(--acento)); color: #fff; justify-content: center; margin: -22px 6px 0; box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 40%, transparent); }
@@ -363,7 +405,7 @@
   .deuda .boton-gris { background: var(--relleno); box-shadow: none; }
   .boton-mini { flex: none; padding: 6px 12px; border-radius: 999px; background: var(--relleno); color: var(--acento); font-size: 14px; font-weight: 600; }
   .banner { background: var(--tarjeta); border-radius: 14px; padding: 12px 14px; margin-top: 12px; font-size: 15px; box-shadow: var(--sombra); }
-  .compartir-mes { width: 100%; display: flex; gap: 12px; align-items: center; text-align: left; margin-top: 12px; padding: 14px 16px; border-radius: 16px; color: #fff; background: linear-gradient(120deg, #ff375f, #bf5af2 55%, #0a84ff); }
+  .compartir-mes { width: 100%; display: flex; gap: 12px; align-items: center; text-align: left; margin-top: 12px; padding: 14px 16px; border-radius: 16px; color: #fff; background: #c2185b; } /* rosa liso: la letra blanca se lee bien (5,9:1) */
   .compartir-mes span { font-size: 28px; } .compartir-mes div { flex: 1; } .compartir-mes small { display: block; opacity: .85; font-size: 13px; }
   .racha { display: flex; gap: 16px; align-items: center; }
   /* Metas */
@@ -883,6 +925,54 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     guardar(); setTimeout(sincronizar, 0);
   }
 
+  // «¿Voy bien?»: lo que llevas gastado día a día (la línea de color) frente al ritmo que te deja justo en tu presupuesto (la gris).
+  // Cuenta los mismos gastos que el resumen (los fijos con sobre no). Al tocar o pasar por encima, se ve cada día.
+  let ritmoDatos = null;
+  function graficoRitmo(ini, dias, diaHoy, p) {
+    ritmoDatos = null;
+    if (!p || dias < 2 || diaHoy < 1) return "";
+    const fin = masDiasISO(ini, dias), diario = Array(dias).fill(0);
+    for (const x of vivos()) if (x.tipo === "gasto" && cuenta(x) && x.fecha >= ini && x.fecha < fin) diario[Math.round((Date.parse(x.fecha) - Date.parse(ini)) / 864e5)] += x.importe;
+    const acumulado = [];
+    diario.slice(0, diaHoy).reduce((s, v, i) => (acumulado[i] = s + v), 0);
+    const llevas = acumulado[diaHoy - 1], prevision = diaHoy >= 3 ? Math.round((llevas / diaHoy) * dias) : null; // con uno o dos días, la previsión no dice nada
+    const W = 320, H = 120, techo = Math.max(p, llevas, prevision || 0) * 1.08;
+    const x = (i) => (i / (dias - 1)) * W, y = (v) => H - (v / techo) * H;
+    const linea = acumulado.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+    const hallazgo = prevision === null ? `Llevas ${euros(llevas)} de ${euros(p)}.`
+      : prevision > p ? `<b class="pasado">A este ritmo acabarías con ${euros(prevision)}: ${euros(prevision - p)} más que tu presupuesto.</b>`
+      : `A este ritmo acabarías con <b class="num">${euros(prevision)}</b>, ${euros(p - prevision)} por debajo de tu presupuesto.`;
+    ritmoDatos = { ini, acumulado, dias, p, x: (i) => (x(i) / W) * 100, y: (v) => (y(v) / H) * 100 };
+    return `<div class="ritmo">
+      <p class="ritmo-hallazgo">${hallazgo}</p>
+      <div class="ritmo-grafico" role="img" aria-label="Llevas ${euros(llevas)} el día ${diaHoy} de ${dias}. Para llegar justo a ${euros(p)}, a estas alturas llevarías ${euros(Math.round((p * diaHoy) / dias))}.">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="0" y1="${H}" x2="${W}" y2="${H}" class="ritmo-base"/>
+          <line x1="0" y1="${H}" x2="${W}" y2="${y(p).toFixed(1)}" class="ritmo-ref"/>
+          <path d="${linea}" class="ritmo-linea"/>
+        </svg>
+        <span class="ritmo-punto" style="left:${ritmoDatos.x(diaHoy - 1)}%;top:${ritmoDatos.y(llevas)}%"></span>
+        <span class="ritmo-guia" hidden></span>
+      </div>
+      <div class="ritmo-ejes"><span>${diaCorto(ini)}</span><span>${diaCorto(masDiasISO(ini, dias - 1))}</span></div>
+      <div class="ritmo-pie"><span class="ritmo-leyenda"><span><i class="ritmo-l1"></i>Lo que llevas</span><span><i class="ritmo-l2"></i>Para llegar justo</span></span><span class="ritmo-dato num" aria-live="polite"></span></div>
+    </div>`;
+  }
+  // Al deslizar el dedo por el gráfico (o pasar el ratón): qué llevabas ese día y qué tocaba
+  function engancharRitmo() {
+    const g = $("#resumen .ritmo-grafico"), d = ritmoDatos;
+    if (!g || !d) return;
+    const guia = g.querySelector(".ritmo-guia"), dato = $("#resumen .ritmo-dato");
+    const mostrar = (e) => {
+      const r = g.getBoundingClientRect(), i = Math.max(0, Math.min(d.acumulado.length - 1, Math.round(((e.clientX - r.left) / r.width) * (d.dias - 1))));
+      guia.hidden = false; guia.style.left = d.x(i) + "%";
+      dato.textContent = `${diaCorto(masDiasISO(d.ini, i))}: ${euros(d.acumulado[i])} (justo: ${euros(Math.round((d.p * (i + 1)) / d.dias))})`;
+    };
+    g.addEventListener("pointermove", mostrar);
+    g.addEventListener("pointerdown", mostrar);
+    g.addEventListener("pointerleave", () => { guia.hidden = true; dato.textContent = ""; });
+  }
+
   // El periodo de las cuentas: el mes natural, de paga a paga o de semana a semana (ini entra, fin no). El servidor usa la misma cuenta.
   function periodo(hoy = hoyISO()) {
     const dias = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
@@ -1033,12 +1123,14 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     }
     const media = diaHoy ? Math.round(gastadoR / diaHoy) : 0;
     const comparacion = compararConAntes(esActual, diaHoy, gastadoR, semana ? semanaVista : null);
+    const ritmo = esActual && p ? graficoRitmo(usaPeriodo ? pe.ini : semana ? semanaVista : mesVisto + "-01", usaPeriodo ? pe.largo : semana ? 7 : diasMes, diaHoy, p) : (ritmoDatos = null, "");
     const [ent, dec] = euros(gastadoR).replace(" €", "").split(",");
     $("#resumen").innerHTML = `<div class="etiqueta">${etiqueta}</div>
-      <div class="total num">${ent}<small>,${dec} €</small></div>${comparacion}${barra}${lineas}
+      <div class="total num">${ent}<small>,${dec} €</small></div>${comparacion}${barra}${lineas}${ritmo}
       <div class="chips-resumen"><div class="mini"><span class="etiqueta">Media al día</span><b class="num">${euros(media)}</b></div>
       <div class="mini"><span class="etiqueta">Ingresos</span><b class="num ${ingresadoR ? "ingreso" : ""}">${ingresadoR ? "+" : ""}${euros(ingresadoR)}</b></div></div>
       ${esActual ? `<button class="boton-permitir" id="permitir">${ico("tag", "ico-texto")}¿Me lo puedo permitir?</button>` : ""}`;
+    engancharRitmo();
 
     // Por categoría
     const porCat = {};
@@ -1100,7 +1192,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
         return `<div class="desliza"><button class="fila" data-editar="${mv.id}"><div class="icono" style="--c:${color}">${ico(icono)}</div><div class="medio"><div class="titulo">${esc(mv.nota || nombre)}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>
           <div class="cifra num ${mv.tipo === "ingreso" ? "ingreso" : ""}">${mv.tipo === "ingreso" ? "+" : "−"}${euros(mv.importe)}</div></button></div>`;
       }).join("")}</div>`;
-    }).join("") : q ? `${cabecera}<div class="vacio">Nada con «${esc(busqueda.trim())}».</div>` : `<div class="vacio"><b>${semana ? (esActual ? "Aún no hay gastos esta semana" : "Nada esa semana") : esActual ? "Aún no hay gastos este mes" : "Nada en " + nombreMes(mesVisto)}</b>${esActual ? "Pulsa el + cada vez que gastes algo. Tarda dos segundos." : ""}</div>`;
+    }).join("") : q ? `${cabecera}<div class="vacio">Nada con «${esc(busqueda.trim())}».</div>` : `<div class="vacio"><b>${semana ? (esActual ? "Aún no hay gastos esta semana" : "Nada esa semana") : esActual ? "Aún no hay gastos este mes" : "Nada en " + nombreMes(mesVisto)}</b>${esActual ? `Pulsa el + cada vez que gastes algo. Tarda dos segundos.<br><button class="boton-azul vacio-boton" data-accion="anadir">Apuntar un gasto</button>` : ""}</div>`;
     alPintar.forEach((f) => { try { f(); } catch (e) { console.error(e); } }); // extras: racha, retos, insignias, cobros fijos
   }
   const alPintar = [], alCambiarVista = [], alSincronizar = [];
@@ -1243,6 +1335,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
   $("#lista").addEventListener("click", (e) => {
     if (recienDeslizado) return;
     if (e.target.closest("[data-quitar-filtro]")) { filtroCat = null; return pintar(); }
+    if (e.target.closest('[data-accion="anadir"]')) return $("#abrir-anadir").click();
     const b = e.target.closest("[data-editar]"); if (b) abrirMov(datos.movs.find((x) => x.id === b.dataset.editar));
   });
   // Deslizar un movimiento a la izquierda para borrarlo (como en Mail)
@@ -1257,7 +1350,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     if (toque.horizontal === null && Math.abs(dx) + Math.abs(dy) > 8) toque.horizontal = Math.abs(dx) > Math.abs(dy);
     if (!toque.horizontal) return;
     toque.dx = Math.min(0, dx);
-    toque.fila.classList.add("moviendo"); toque.fila.style.transform = `translateX(${toque.dx}px)`;
+    toque.fila.classList.add("moviendo"); toque.fila.parentElement.classList.add("deslizando"); toque.fila.style.transform = `translateX(${toque.dx}px)`;
   }, { passive: true });
   $("#lista").addEventListener("touchend", () => {
     if (!toque) return;
@@ -1266,7 +1359,7 @@ document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.data
     if (!horizontal) return;
     recienDeslizado = true; setTimeout(() => (recienDeslizado = false), 350);
     if (dx < -90) { fila.style.transform = "translateX(-110%)"; if (navigator.vibrate) navigator.vibrate(10); setTimeout(() => borrarMov(fila.dataset.editar), 200); }
-    else fila.style.transform = "";
+    else { fila.style.transform = ""; setTimeout(() => fila.parentElement?.classList.remove("deslizando"), 260); } // el rojo se va cuando la fila ha vuelto a su sitio
   });
   $("#categorias").addEventListener("click", (e) => {
     const b = e.target.closest("[data-filtro-cat]"); if (!b) return;

@@ -253,9 +253,32 @@
         + fila(prest.filter((x) => x.mio < 0), "#ff3b30", "wallet", (q, n) => `Debes <b>${q}</b> de préstamos: ${n}.`));
       caja.querySelectorAll("[data-banner-prestamo]").forEach((b) => b.addEventListener("click", () => (b.dataset.bannerPrestamo ? abrirPrestamo(b.dataset.bannerPrestamo) : B.irVista("grupos"))));
     }
-    // Android sin ningún pago de Wallet todavía: falta MacroDroid, que no viene en el móvil (en el iPhone, Atajos sí)
+    // Primeros pasos: a quien acaba de empezar, lo que le falta para sacarle partido, con su progreso real. Se va al acabar o con la ×.
+    const android = /Android/i.test(navigator.userAgent);
+    let pasosOcultos = false; try { pasosOcultos = localStorage.getItem("bolsillo.primerosPasos") === "no"; } catch {}
+    const pasos = [
+      { id: "presupuesto", hecho: Boolean(B.datos.presupuesto || B.datos.extra.variable), texto: "Pon cuánto quieres gastar al mes" },
+      { id: "gasto", hecho: B.datos.movs.some((m) => m.tipo === "gasto" && !m.borrado), texto: "Apunta tu primer gasto" },
+      { id: "nube", hecho: Boolean(B.sync.clave), texto: "Crea tu nube: copia de seguridad y amigos" },
+      { id: "pago", hecho: B.datos.movs.some((m) => m.origen === "applepay" || m.origen === "wallet"), texto: android ? "Que se apunten solos al pagar con Google Wallet" : "Que se apunten solos al pagar con Apple Pay" },
+    ], hechos = pasos.filter((x) => x.hecho).length;
+    const verPasos = esActual && !pasosOcultos && hechos < pasos.length && B.datos.movs.length < 15; // solo al principio: a quien ya lo usa no se le insiste
+    if (verPasos) {
+      caja.insertAdjacentHTML("afterbegin", `<div class="primeros-pasos"><div class="pp-cabeza"><b>Primeros pasos</b><span class="num">${hechos} de ${pasos.length}</span><button id="pp-ocultar" aria-label="Ocultar los primeros pasos">×</button></div>
+        <div class="barra" role="img" aria-label="${hechos} de ${pasos.length} hechos"><i style="width:${(hechos / pasos.length) * 100}%;background:var(--verde)"></i></div>
+        ${pasos.map((x) => `<button class="pp-paso" data-paso="${x.id}"${x.hecho ? " disabled" : ""}><span class="pp-marca">${x.hecho ? ico("check") : ""}</span><span class="pp-texto">${x.texto}</span>${x.hecho ? "" : '<span class="enlace">›</span>'}</button>`).join("")}</div>`);
+      const acciones = {
+        presupuesto: () => { $("#abrir-ajustes").click(); setTimeout(() => $("#presupuesto")?.focus(), 450); },
+        gasto: () => $("#abrir-anadir").click(),
+        nube: () => B.crearNube(),
+        pago: async () => { if (!B.sync.clave) return B.crearNube(); B.abrirHoja($("#hoja-applepay")); }, // la guía necesita la clave de la nube
+      };
+      caja.querySelectorAll("[data-paso]").forEach((b) => b.addEventListener("click", () => acciones[b.dataset.paso]()));
+      $("#pp-ocultar").addEventListener("click", () => { try { localStorage.setItem("bolsillo.primerosPasos", "no"); } catch {} B.pintar(); avisar("Todo esto lo tienes también en Ajustes"); });
+    }
+    // Android sin ningún pago de Wallet todavía: falta MacroDroid, que no viene en el móvil (en el iPhone, Atajos sí). Si salen los primeros pasos, ya lo dicen ellos
     let walletOculto = false; try { walletOculto = localStorage.getItem("bolsillo.avisoWallet") === "no"; } catch {}
-    if (esActual && /Android/i.test(navigator.userAgent) && !walletOculto && !B.datos.movs.some((m) => m.origen === "wallet")) {
+    if (esActual && android && !verPasos && !walletOculto && !B.datos.movs.some((m) => m.origen === "wallet")) {
       caja.insertAdjacentHTML("afterbegin", `<div class="banner"><button id="banner-wallet" style="display:flex;gap:12px;align-items:center;flex:1;text-align:left"><span class="icono chico" style="--c:#007aff">${ico("contactless-payment")}</span>
         <span><b>Que tus pagos se apunten solos</b><br>Falta un paso: conectar Google Wallet con la app gratis MacroDroid (3 minutos).</span></button><button id="ocultar-wallet" aria-label="Ocultar" style="font-size:22px;padding:0 4px;color:var(--suave)">×</button></div>`);
       $("#banner-wallet").addEventListener("click", async () => {
@@ -299,34 +322,37 @@
     const x = c.getContext("2d"), [, nombreCat, iconoCat, color] = catDe("gasto", d.topCat);
     const icono = (n, cx, cy, tam, color = "#fff") => { x.save(); x.translate(cx, cy); x.scale(tam / 256, tam / 256); x.fillStyle = color; x.fill(new Path2D(window.ICONOS[n])); x.restore(); };
     const f = (peso, tam) => `${peso} ${tam}px -apple-system, "SF Pro Display", "Segoe UI", Roboto, sans-serif`;
-    const fondo = x.createLinearGradient(0, 0, W, H); fondo.addColorStop(0, color); fondo.addColorStop(1, "#111114");
-    x.fillStyle = fondo; x.fillRect(0, 0, W, H);
-    // círculos decorativos
-    x.globalAlpha = .12; x.fillStyle = "#fff";
-    [[900, 260, 260], [120, 1500, 340], [980, 1700, 180]].forEach(([cx, cy, r]) => { x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill(); });
-    x.globalAlpha = 1; x.fillStyle = "#fff"; x.textBaseline = "alphabetic";
+    // El fondo es el color de la categoría en la que más gastas, liso y oscurecido lo justo para que el blanco se lea (4,5:1):
+    // cada mes y cada persona tiene su tarjeta
+    const lum = (rgb) => rgb.map((v) => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
+    let rgb = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+    for (let n = 0; n < 60 && 1.05 / (lum(rgb) + .05) < 4.8; n++) rgb = rgb.map((v) => Math.floor(v * .93));
+    x.fillStyle = `rgb(${rgb})`; x.fillRect(0, 0, W, H);
+    x.fillStyle = "#fff"; x.textBaseline = "alphabetic";
     const mes = new Date(d.k + "-15T12:00:00").toLocaleDateString("es-ES", { month: "long", year: "numeric" });
-    x.font = f(600, 44); x.globalAlpha = .85; x.fillText("MI MES EN BOLSILLO", 90, 190); x.globalAlpha = 1;
+    x.font = f(600, 44); x.globalAlpha = .85; x.fillText("Mi mes en Bolsillo", 90, 190); x.globalAlpha = 1;
     x.font = f(800, 92); x.fillText(mes.charAt(0).toUpperCase() + mes.slice(1), 90, 300);
     x.font = f(500, 46); x.globalAlpha = .85; x.fillText("He gastado", 90, 470); x.globalAlpha = 1;
     x.font = f(800, 170); x.fillText(euros(d.total, d.total < 100000), 82, 640);
     x.font = f(500, 44); x.globalAlpha = .85; x.fillText(`en ${plural(d.n, "gasto", "gastos")}`, 90, 715); x.globalAlpha = 1;
     // tarjetas
-    const tarjeta = (y, alto, titulo, valor, extra) => {
-      x.fillStyle = "rgba(255,255,255,.14)"; x.beginPath(); x.roundRect(70, y, W - 140, alto, 44); x.fill(); x.fillStyle = "#fff";
-      x.font = f(500, 38); x.globalAlpha = .8; x.fillText(titulo, 120, y + 72); x.globalAlpha = 1;
+    // Cada dato en su franja (un tono más oscuro, sin transparencias), el título arriba y la cifra alineada a la derecha, todas en la misma línea
+    const DER = W - 120;
+    const tarjeta = (y, alto, titulo, valor, derecha, extra) => {
+      x.fillStyle = "rgba(0,0,0,.2)"; x.beginPath(); x.roundRect(70, y, W - 140, alto, 44); x.fill(); x.fillStyle = "#fff";
+      x.textAlign = "left"; x.font = f(500, 38); x.globalAlpha = .85; x.fillText(titulo, 120, y + 72); x.globalAlpha = 1;
       x.font = f(700, 60); x.fillText(valor, 120, y + 150);
-      if (extra) { x.font = f(500, 38); x.globalAlpha = .8; x.fillText(extra, 120, y + 210); x.globalAlpha = 1; }
+      if (extra) { x.font = f(500, 38); x.globalAlpha = .85; x.fillText(extra, 120, y + 210); x.globalAlpha = 1; }
+      if (derecha) { x.textAlign = "right"; x.font = f(600, 46); x.fillText(derecha, DER, y + 150); x.textAlign = "left"; }
     };
-    tarjeta(800, 250, "Donde más se me va", nombreCat, `${euros(d.topCatTotal)} = ${d.equivalencia}`);
-    x.fillStyle = "rgba(255,255,255,.18)"; x.beginPath(); x.roundRect(W - 280, 845, 160, 160, 40); x.fill(); icono(iconoCat, W - 245, 880, 90);
+    tarjeta(800, 250, "Donde más se me va", nombreCat, null, `${euros(d.topCatTotal)} = ${d.equivalencia}`);
+    icono(iconoCat, DER - 100, 850, 100);
     let y = 1080;
-    if (d.topSitio) { tarjeta(y, 190, "Mi sitio favorito", d.topSitio.length > 22 ? d.topSitio.slice(0, 21) + "…" : d.topSitio, null); x.font = f(500, 40); x.globalAlpha = .8; x.fillText(`${d.veces} veces`, W - 300, y + 150); x.globalAlpha = 1; y += 220; }
-    if (d.diaCaro) { tarjeta(y, 190, "Mi día más caro", new Date(d.diaCaro + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric" }), null); x.font = f(600, 46); x.fillText(euros(d.diaCaroTotal), W - 330, y + 150); y += 220; }
-    tarjeta(y, 190, "Racha récord", `       ${plural(d.racha, "día", "días")}`, null); icono("fire", 118, y + 100, 58, "#ffb340");
-    if (d.insignias) { icono("medal", W - 300, y + 104, 54, "#ffd60a"); x.font = f(600, 46); x.fillText(String(d.insignias), W - 236, y + 150); }
+    if (d.topSitio) { tarjeta(y, 190, "Mi sitio favorito", d.topSitio.length > 18 ? d.topSitio.slice(0, 17) + "…" : d.topSitio, plural(d.veces, "vez", "veces")); y += 220; }
+    if (d.diaCaro) { tarjeta(y, 190, "Mi día más caro", new Date(d.diaCaro + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric" }), euros(d.diaCaroTotal)); y += 220; }
+    tarjeta(y, 190, "Racha récord", plural(d.racha, "día", "días"), d.insignias ? plural(d.insignias, "insignia", "insignias") : null);
     x.font = f(600, 40); x.globalAlpha = .9; x.textAlign = "center"; x.fillText("Hecho con Bolsillo", W / 2, H - 150);
-    x.font = f(500, 34); x.globalAlpha = .7; x.fillText(location.host, W / 2, H - 96);
+    x.font = f(500, 34); x.globalAlpha = .7; x.fillText("bolsillo-app-9tz.pages.dev", W / 2, H - 96); // la dirección pública, aunque se abra desde una prueba o desde este ordenador
     return c;
   }
   let wrappedBlob = null;
@@ -714,7 +740,7 @@
     x.font = f(500, 46); x.globalAlpha = .9; x.fillText(`contra ${plural(d.filas.length - 1, "amigo", "amigos")} · ${d.tipo === "mes" ? "un mes" : "una semana"}`, W / 2, 1050); x.globalAlpha = 1;
     x.font = f(800, 200); x.fillText(pct(yo.pct), W / 2, 1360);
     x.font = f(500, 44); x.globalAlpha = .9; x.fillText("de mi presupuesto gastado", W / 2, 1440);
-    x.font = f(600, 40); x.fillText("Hecho con Bolsillo", W / 2, H - 150); x.font = f(500, 34); x.globalAlpha = .75; x.fillText(location.host, W / 2, H - 96);
+    x.font = f(600, 40); x.fillText("Hecho con Bolsillo", W / 2, H - 150); x.font = f(500, 34); x.globalAlpha = .75; x.fillText("bolsillo-app-9tz.pages.dev", W / 2, H - 96);
     const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.9)), archivo = new File([blob], "victoria-bolsillo.jpg", { type: "image/jpeg" });
     try {
       if (navigator.canShare?.({ files: [archivo] })) await navigator.share({ files: [archivo], text: `He ganado «${d.nombre}» en Bolsillo · ${location.origin}/conoce/` });
@@ -1366,7 +1392,14 @@
     { id: "menta", nombre: "Menta", c: "#0fa3b1" }, { id: "oro", nombre: "Oro", c: "#c9a227", insignias: 5 },
   ];
   const MODOS = [["", "Automático"], ["claro", "Claro"], ["oscuro", "Oscuro"]];
-  const temaActual = () => ({ modo: "", color: "", ...(B.datos.extra.tema || {}) });
+  const temaActual = () => {
+    const t = { modo: "", color: "", ...(B.datos.extra.tema || {}) };
+    if (t.color && !/^#[0-9a-f]{6}$/i.test(t.color)) t.color = ""; // un color roto (el «si» del fallo del 21 de octubre) vuelve al azul
+    return t;
+  };
+  // Si ese color roto se guardó en la nube, se arregla allí también
+  const repararTema = () => { const c = B.datos.extra.tema?.color; if (c && !/^#[0-9a-f]{6}$/i.test(c)) { B.setExtra("tema", temaActual()); aplicarTema(temaActual()); } };
+  repararTema(); B.alSincronizar.push(repararTema);
   const misInsignias = () => Object.keys(B.datos.extra.insignias || {}).length;
   function aplicarTema(t) {
     const raiz = document.documentElement;
@@ -1385,7 +1418,7 @@
           return `<button class="muestra" data-color="${c.c}" style="--m:${c.c}" aria-pressed="${elegido}" aria-label="${c.nombre}${cerrado ? ` (se desbloquea con ${c.insignias} insignias)` : ""}" ${cerrado ? 'data-cerrado="1"' : ""}>${cerrado ? ico("lock-key") : elegido ? ico("check") : ""}</button>`; }).join("")}</div>
         <p class="nota-ajuste" style="margin:10px 0 0">${tengo >= 5 ? "Tienes el color Oro: es para quien consigue 5 insignias." : `El color Oro se desbloquea con 5 insignias (llevas ${tengo}).`}</p></div>`;
     $$("[data-modo]").forEach((b) => b.addEventListener("click", () => elegirTema({ modo: b.dataset.modo })));
-    $$("[data-color]").forEach((b) => b.addEventListener("click", () => b.dataset.cerrado ? avisar(`Consigue ${5 - tengo} insignias más para desbloquear el Oro`) : elegirTema({ color: b.dataset.color === COLORES[0].c ? "" : b.dataset.color })));
+    $$(".muestra[data-color]").forEach((b) => b.addEventListener("click", () => b.dataset.cerrado ? avisar(`Consigue ${5 - tengo} insignias más para desbloquear el Oro`) : elegirTema({ color: b.dataset.color === COLORES[0].c ? "" : b.dataset.color })));
   }
   function elegirTema(cambio) {
     const t = { ...temaActual(), ...cambio };

@@ -108,7 +108,7 @@ async function sobresCon(cobros) {
 // ---------- 3. Android: aviso para conectar Google Wallet, y la guía dice qué ha llegado ----------
 {
   const hace = new Date(Date.now() - 5 * 60e3).toISOString();
-  const p = await abrir({ movil: "android", datos: { movs: [mov("a1", "gasto", "super", 1250, "Mercadona")] }, api: { "ultimo-pago": { origen: "wallet", resultado: "ignorado", texto: "[not_title] [notification]", cuando: hace } } });
+  const p = await abrir({ movil: "android", guardado: { "bolsillo.primerosPasos": "no" }, datos: { movs: [mov("a1", "gasto", "super", 1250, "Mercadona")] }, api: { "ultimo-pago": { origen: "wallet", resultado: "ignorado", texto: "[not_title] [notification]", cuando: hace } } });
   ok(Boolean(await p.$("#banner-wallet")), "en Android sin pagos de Wallet sale el aviso para conectarlo");
   await pulsar(p, "#banner-wallet"); await espera(900);
   ok(await p.$eval("#hoja-applepay", (h) => h.classList.contains("abierta")), "al tocarlo se abre la guía");
@@ -133,6 +133,94 @@ async function sobresCon(cobros) {
     ok(!malos.length, `modo ${tema === "light" ? "claro" : "oscuro"}: los 8 colores se leen bien${malos.length ? " — fallan: " + malos.join(", ") : ""}`);
     errores.push(...p.errores); await p.context().close();
   }
+}
+
+// ---------- 5. Elegir color en Ajustes pulsando los círculos, como lo hace una persona ----------
+{
+  const p = await abrir();
+  await pulsar(p, "#abrir-ajustes"); await espera(700);
+  const muestras = await p.$$eval(".muestra[data-color]:not([data-cerrado])", (bs) => bs.map((b) => b.dataset.color));
+  const malos = [];
+  for (const c of muestras.slice(1)) {
+    await p.click(`.muestra[data-color="${c}"]`); await espera(250);
+    const r = await p.evaluate((c) => ({ guardado: JSON.parse(localStorage.getItem("bolsillo.tema") || "{}").color, pulsado: document.querySelector(`.muestra[data-color="${c}"]`).getAttribute("aria-pressed") }), c);
+    if (r.guardado !== c || r.pulsado !== "true") malos.push(`${c} → ${JSON.stringify(r)}`);
+  }
+  ok(!malos.length, `al tocar cada color, se elige ese color${malos.length ? " — fallan: " + malos.join(", ") : ""}`);
+  const antes = await p.evaluate(() => localStorage.getItem("bolsillo.tema"));
+  await p.click("#titulo-ajustes"); await p.mouse.click(200, 400); await espera(300); // tocar en otro sitio de la pantalla
+  ok((await p.evaluate(() => localStorage.getItem("bolsillo.tema"))) === antes, "tocar en otro sitio de la pantalla no cambia el color");
+  await pulsar(p, `.muestra[data-color="${muestras[0]}"]`); await espera(250);
+  ok((await p.evaluate(() => JSON.parse(localStorage.getItem("bolsillo.tema")).color)) === "", "y el círculo azul vuelve al color de siempre");
+  errores.push(...p.errores); await p.context().close();
+  // Quien se quedó con el color roto del fallo («si») lo recupera solo, también el que estaba en la nube
+  const r = await abrir({ extra: { tema: { modo: "", color: "si" } }, guardado: { "bolsillo.tema": JSON.stringify({ modo: "", color: "si" }) } });
+  const estado = await r.evaluate(() => ({ acento: getComputedStyle(document.documentElement).getPropertyValue("--acento").trim(), local: JSON.parse(localStorage.getItem("bolsillo.tema")).color, nube: B.datos.extra.tema?.color }));
+  ok(estado.acento === "#0066d6" && !estado.local && !estado.nube, `un color roto guardado se arregla solo: ${JSON.stringify(estado)}`);
+  errores.push(...r.errores); await r.context().close();
+}
+
+// ---------- 6. Deslizar un gasto para borrarlo, con el dedo ----------
+{
+  const p = await abrir({ datos: { movs: [mov("g1", "gasto", "super", 1250, "Mercadona"), mov("g2", "gasto", "comida", 350, "Café")] } });
+  const fondo = () => p.$eval('[data-editar="g1"]', (f) => getComputedStyle(f.parentElement).backgroundColor);
+  ok(["rgba(0, 0, 0, 0)", "transparent"].includes(await fondo()), "en reposo no asoma el rojo de «Borrar» detrás de los gastos");
+  // El dedo: empieza en la fila y se mueve a la izquierda
+  const deslizar = (id, dx, soltar = true) => p.evaluate(async ({ id, dx, soltar }) => {
+    const f = document.querySelector(`[data-editar="${id}"]`), r = f.getBoundingClientRect(), x = r.right - 40, y = r.top + r.height / 2;
+    const toque = (px) => new Touch({ identifier: 1, target: f, clientX: px, clientY: y });
+    f.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [toque(x)], changedTouches: [toque(x)] }));
+    for (let i = 1; i <= 5; i++) f.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, touches: [toque(x + dx * i / 5)], changedTouches: [toque(x + dx * i / 5)] }));
+    const durante = f.parentElement.classList.contains("deslizando");
+    if (soltar) f.dispatchEvent(new TouchEvent("touchend", { bubbles: true, touches: [], changedTouches: [toque(x + dx)] }));
+    return durante;
+  }, { id, dx, soltar });
+  ok(await deslizar("g1", -50), "al deslizar, aparece el rojo de «Borrar»");
+  await espera(400);
+  ok(["rgba(0, 0, 0, 0)", "transparent"].includes(await fondo()), "si sueltas antes de tiempo, la fila vuelve y el rojo se va");
+  await deslizar("g1", -160); await espera(900);
+  ok(await p.evaluate(() => { const m = B.datos.movs.find((x) => x.id === "g1"); return !m || m.borrado; }), "si deslizas hasta el final, el gasto se borra");
+  errores.push(...p.errores); await p.context().close();
+}
+
+// ---------- 7. El gráfico del ritmo: «¿voy bien este mes?» ----------
+{
+  const p = await abrir({ datos: { presupuesto: 20000, movs: [mov("r1", "gasto", "super", 1250, "Mercadona"), mov("r2", "gasto", "comida", 350, "Café"), mov("r3", "gasto", "ocio", 900, "Cine")] } });
+  ok(Boolean(await p.$("#resumen .ritmo-grafico")), "en el mes actual sale el gráfico del ritmo");
+  const { dia, dias } = await p.evaluate(() => { const h = new Date(); return { dia: h.getDate(), dias: new Date(h.getFullYear(), h.getMonth() + 1, 0).getDate() }; });
+  const hallazgo = await texto(p, "#resumen .ritmo-hallazgo");
+  const euro = (c) => (c / 100).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  ok(dia < 3 ? hallazgo.includes("Llevas 25,00 €") : hallazgo.includes(euro(Math.round((2500 / dia) * dias))), `la frase calcula bien a dónde llegarías: «${hallazgo}»`);
+  const caja = await (await p.$("#resumen .ritmo-grafico")).boundingBox();
+  await p.mouse.move(caja.x + caja.width - 2, caja.y + caja.height / 2); await espera(150);
+  ok((await texto(p, "#resumen .ritmo-dato")).includes("25,00 €"), "al pasar por encima, se ve lo que llevas ese día: " + (await texto(p, "#resumen .ritmo-dato")));
+  await pulsar(p, '[data-rango="semana"]'); await espera(400);
+  ok(Boolean(await p.$("#resumen .ritmo-grafico")), "y también en la vista de la semana");
+  await pulsar(p, "#mes-antes"); await espera(400);
+  ok(!(await p.$("#resumen .ritmo-grafico")), "en una semana pasada no sale (ya no hay ritmo que seguir)");
+  errores.push(...p.errores); await p.context().close();
+}
+
+// ---------- 8. La primera vez: primeros pasos y la lista vacía ----------
+{
+  const p = await abrir({ datos: { presupuesto: null }, guardado: { "bolsillo.sync": "{}" } });
+  ok((await texto(p, ".primeros-pasos .pp-cabeza")).includes("0 de 4"), "a quien empieza le salen los primeros pasos: 0 de 4");
+  ok(Boolean(await p.$('#lista [data-accion="anadir"]')), "la lista vacía tiene un botón para apuntar el primer gasto");
+  await p.click('#lista [data-accion="anadir"]'); await espera(500);
+  ok(await p.$eval("#hoja-mov", (h) => h.classList.contains("abierta")), "que abre la hoja de apuntar");
+  await p.fill("#importe", "3,5"); await p.fill("#nota", "Café"); await pulsar(p, "#guardar-mov"); await espera(700);
+  ok((await texto(p, ".primeros-pasos .pp-cabeza")).includes("1 de 4") && (await p.$eval('[data-paso="gasto"]', (b) => b.disabled)), "al apuntar el primer gasto, ese paso queda hecho: 1 de 4");
+  await p.click('[data-paso="presupuesto"]'); await espera(600);
+  ok(await p.$eval("#hoja-ajustes", (h) => h.classList.contains("abierta")), "el paso del presupuesto lleva a Ajustes");
+  await p.evaluate(() => B.cerrarHoja()); await espera(400);
+  await p.click("#pp-ocultar"); await espera(400);
+  ok(!(await p.$(".primeros-pasos")), "con la × se quitan");
+  await p.reload(); await p.waitForFunction(() => window.B && document.querySelector("#resumen")?.textContent); await espera(500);
+  ok(!(await p.$(".primeros-pasos")), "y no vuelven a salir");
+  errores.push(...p.errores); await p.context().close();
+  const veterano = await abrir({ datos: { movs: Array.from({ length: 20 }, (_, i) => mov("v" + i, "gasto", "comida", 300, "Café")) } });
+  ok(!(await veterano.$(".primeros-pasos")), "a quien ya usa la app no se le insiste con los primeros pasos");
+  errores.push(...veterano.errores); await veterano.context().close();
 }
 
 ok(!errores.length, "ningún error de JavaScript en la app" + (errores.length ? ": " + [...new Set(errores)].join(" | ") : ""));

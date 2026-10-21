@@ -74,7 +74,7 @@ export const pasos = [
 export const frase = "Bolsillo no te pide tu banco, ni tu email, ni tu nombre. Solo te ayuda a que el dinero te dure hasta final de mes.";
 
 export const capturas = [
-  { img: "mes.webp", alt: "Pantalla Mes de Bolsillo: 100,08 € gastados de 250 €, cuánto queda y en qué se va", titulo: "Tu mes de un vistazo", texto: "Lo que llevas, lo que te queda y en qué se te va." },
+  { img: "mes.webp", alt: "Pantalla Mes de Bolsillo: 100,08 € gastados de 250 €, lo que queda y el gráfico de a qué ritmo vas este mes", titulo: "Tu mes de un vistazo", texto: "Lo que llevas, lo que te queda y en qué se te va." },
   { img: "grupo.webp", alt: "Grupo Piso Triana en Bolsillo: saldos de cada persona y quién debe pagar a quién", titulo: "Cuentas claras en el piso", texto: "Cada uno ve lo mismo. Sin hojas de cálculo." },
   { img: "metas.webp", alt: "Pantalla Metas de Bolsillo: racha de 9 días, reto semana sin delivery y huchas", titulo: "Ahorrar como un juego", texto: "Rachas, retos que se comprueban solos y huchas." },
   { img: "tu-mes.webp", alt: "Tarjeta para stories «Mi mes en Bolsillo» con el total gastado, la categoría principal y la racha", titulo: "Tu mes, para stories", texto: "Una tarjeta con tu mes para compartir. Solo la imagen, nunca tus datos." },
